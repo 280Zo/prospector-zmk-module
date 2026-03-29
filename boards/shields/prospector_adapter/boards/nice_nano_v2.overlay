@@ -13,11 +13,7 @@
  *   D20 = P0.29   I2C SDA
  *   D21 = P0.31   I2C SCL
  *
- * NOTE: The display init params below match the Waveshare 1.69" ST7789V
- * (same screen carrefinho targets). If you are using a GC9A01-based
- * circular display (e.g. rb-wav-886 / rb-wav-887), swap the compatible
- * string to "galaxycore,gc9a01", remove the ST7789V-specific params, set
- * width/height = <240>/<240>, and remove the x/y-offset.
+ * Targets the Waveshare 1.69" ST7789V2 display (rb-wav-886 / rb-wav-887).
  */
 
 / {
