@@ -1,0 +1,151 @@
+/*
+ * nice!nano v2 overlay for prospector_adapter
+ *
+ * Pin mapping (nice!nano v2 silkscreen → nRF52840 GPIO):
+ *   D1  = P0.06   backlight PWM
+ *   D2  = P0.17   APDS9960 INT
+ *   D3  = P0.20   SPI SCK
+ *   D4  = P0.22   SPI MOSI
+ *   D5  = P0.24   display DC (data/command)
+ *   D6  = P1.00   display RST
+ *   D7  = P0.11   display CS
+ *   D8  = P1.04   SPI MISO (unused — write-only display, pin reserved)
+ *   D20 = P0.29   I2C SDA
+ *   D21 = P0.31   I2C SCL
+ *
+ * NOTE: The display init params below match the Waveshare 1.69" ST7789V
+ * (same screen carrefinho targets). If you are using a GC9A01-based
+ * circular display (e.g. rb-wav-886 / rb-wav-887), swap the compatible
+ * string to "galaxycore,gc9a01", remove the ST7789V-specific params, set
+ * width/height = <240>/<240>, and remove the x/y-offset.
+ */
+
+/ {
+    pwmleds {
+        compatible = "pwm-leds";
+        disp_bl: pwm_led_1 {
+            /* PWM_POLARITY_NORMAL here; inversion handled in pinctrl below */
+            pwms = <&pwm1 0 PWM_MSEC(1) PWM_POLARITY_NORMAL>;
+        };
+    };
+};
+
+/* SPI2 shares pins we need — disable it */
+&spi2 {
+    status = "disabled";
+};
+
+&pinctrl {
+    spi3_default: spi3_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK,  0, 20)>,   /* D3 */
+                    <NRF_PSEL(SPIM_MOSI, 0, 22)>,   /* D4 */
+                    <NRF_PSEL(SPIM_MISO, 1,  4)>;   /* D8 — reserved, not wired */
+        };
+    };
+
+    spi3_sleep: spi3_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK,  0, 20)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 22)>,
+                    <NRF_PSEL(SPIM_MISO, 1,  4)>;
+            low-power-enable;
+        };
+    };
+
+    pwm1_default: pwm1_default {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 6)>;   /* D1 */
+            nordic,invert;
+        };
+    };
+
+    pwm1_sleep: pwm1_sleep {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 6)>;
+            low-power-enable;
+        };
+    };
+
+    i2c1_default: i2c1_default {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SCL, 0, 31)>,   /* D21 */
+                    <NRF_PSEL(TWIM_SDA, 0, 29)>;   /* D20 */
+        };
+    };
+
+    i2c1_sleep: i2c1_sleep {
+        group1 {
+            psels = <NRF_PSEL(TWIM_SCL, 0, 31)>,
+                    <NRF_PSEL(TWIM_SDA, 0, 29)>;
+            low-power-enable;
+        };
+    };
+};
+
+disp_spi: &spi3 {
+    status = "okay";
+    pinctrl-0 = <&spi3_default>;
+    pinctrl-1 = <&spi3_sleep>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&gpio0 11 GPIO_ACTIVE_LOW>;   /* D7 */
+};
+
+/ {
+    mipi_dbi {
+        compatible = "zephyr,mipi-dbi-spi";
+        spi-dev = <&spi3>;
+        dc-gpios    = <&gpio0 24 GPIO_ACTIVE_HIGH>;   /* D5 */
+        reset-gpios = <&gpio1  0 GPIO_ACTIVE_LOW>;    /* D6 */
+        write-only;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        st7789: st7789v@0 {
+            compatible = "sitronix,st7789v";
+            mipi-max-frequency = <30000000>;
+            mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+            reg = <0>;
+            width  = <240>;
+            height = <280>;
+            x-offset = <0>;
+            y-offset = <20>;
+            vcom          = <0x19>;
+            gctrl         = <0x35>;
+            vrhs          = <0x12>;
+            vdvs          = <0x20>;
+            mdac          = <0x00>;
+            gamma         = <0x01>;
+            colmod        = <0x05>;
+            lcm           = <0x2c>;
+            porch-param   = [ 0c 0c 00 33 33 ];
+            cmd2en-param  = [ 5a 69 02 01 ];
+            pwctrl1-param = [ a4 a1 ];
+            pvgam-param   = [ D0 04 0D 11 13 2B 3F 54 4C 18 0D 0B 1F 23 ];
+            nvgam-param   = [ D0 04 0C 11 13 2C 3F 44 51 2F 1F 1F 20 23 ];
+            ram-param     = [ 00 F0 ];
+            rgb-param     = [ CD 08 14 ];
+        };
+    };
+};
+
+&i2c1 {
+    status = "okay";
+    pinctrl-0 = <&i2c1_default>;
+    pinctrl-1 = <&i2c1_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    apds9960: apds9960@39 {
+        compatible = "avago,apds9960";
+        status = "okay";
+        reg = <0x39>;
+        int-gpios = <&gpio0 17 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;   /* D2 */
+    };
+};
+
+&pwm1 {
+    status = "okay";
+    pinctrl-0 = <&pwm1_default>;
+    pinctrl-1 = <&pwm1_sleep>;
+    pinctrl-names = "default", "sleep";
+};
