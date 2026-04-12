@@ -21,6 +21,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 ## Features
 
 - Four status screen layouts to choose from
+- Display backlight automatically turns off on idle/sleep and restores on activity
 - Active layer display
 - Peripheral battery status
 - BLE profile and output indicator
@@ -106,6 +107,10 @@ CONFIG_PROSPECTOR_FIXED_BRIGHTNESS=80
 | `CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR` | Use ambient light sensor for auto brightness | y |
 | `CONFIG_PROSPECTOR_FIXED_BRIGHTNESS` | Fixed display brightness when not using ambient light sensor | 50 (1-100) |
 | `CONFIG_PROSPECTOR_LAYER_NAME_UPPERCASE` | Convert layer names to uppercase (Operator and Radii only) | y |
+
+> [!NOTE]
+> Prospector display backlight is forced to `0` when ZMK enters `IDLE` or `SLEEP`, and restored when activity returns to `ACTIVE`.
+> In fixed mode it restores to `CONFIG_PROSPECTOR_FIXED_BRIGHTNESS`; in ambient-light mode it restores to the current sensor-driven brightness.
 
 ### Modifiers
 | Name | Description | Default |

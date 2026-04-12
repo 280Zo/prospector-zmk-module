@@ -1,4 +1,4 @@
-/*
+c/*
  * nice!nano v2 overlay for prospector_adapter
  *
  * Pin mapping (nice!nano v2 silkscreen → nRF52840 GPIO):
