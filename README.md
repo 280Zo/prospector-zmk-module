@@ -13,6 +13,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 - [Installation](#installation)
 - [Status Screens](#status-screens)
 - [Usage](#usage)
+- [Idle Timeout (Display + Backlight)](#idle-timeout-display--backlight)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
 - [Known Issues](#known-issues)
@@ -21,7 +22,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 ## Features
 
 - Four status screen layouts to choose from
-- Display backlight automatically turns off on idle/sleep and restores on activity
+- Display blanks and backlight turns off on idle/sleep, then restores on activity
 - Active layer display
 - Peripheral battery status
 - BLE profile and output indicator
@@ -92,6 +93,38 @@ keymap {
 }
 ```
 
+## Idle Timeout (Display + Backlight)
+
+`CONFIG_ZMK_IDLE_TIMEOUT` controls when ZMK transitions from `ACTIVE` to `IDLE` after no input activity.
+
+To blank the display at idle, also enable:
+
+```ini
+CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE=y
+```
+
+When that timeout is reached:
+- ZMK display blanking turns the screen off.
+- Prospector backlight is set to `0`.
+
+`CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE` affects display blanking only. Backlight shutoff is handled by this module on `IDLE`/`SLEEP` activity events.
+
+When activity returns:
+- The display is unblanked by ZMK.
+- Backlight is restored by this module:
+  - fixed mode: `CONFIG_PROSPECTOR_FIXED_BRIGHTNESS`
+  - ambient mode: current sensor-driven brightness
+
+Set the timeout in your dongle `.conf` file (value is in milliseconds):
+
+```ini
+# 60 seconds of inactivity before IDLE
+CONFIG_ZMK_IDLE_TIMEOUT=60000
+CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE=y
+```
+
+Optional: if you also use ZMK sleep behavior, this module handles both `IDLE` and `SLEEP` by keeping the backlight off until activity resumes.
+
 ## Configuration
 
 To customize, add config options to your `.conf` file:
@@ -107,6 +140,7 @@ CONFIG_PROSPECTOR_FIXED_BRIGHTNESS=80
 | `CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR` | Use ambient light sensor for auto brightness | y |
 | `CONFIG_PROSPECTOR_FIXED_BRIGHTNESS` | Fixed display brightness when not using ambient light sensor | 50 (1-100) |
 | `CONFIG_PROSPECTOR_LAYER_NAME_UPPERCASE` | Convert layer names to uppercase (Operator and Radii only) | y |
+| `CONFIG_ZMK_IDLE_TIMEOUT` | Inactivity time before ZMK enters `IDLE` (backlight turns off; display blanking also requires `CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE`) | ZMK default |
 
 > [!NOTE]
 > Prospector display backlight is forced to `0` when ZMK enters `IDLE` or `SLEEP`, and restored when activity returns to `ACTIVE`.
