@@ -1,7 +1,7 @@
-c/*
+/*
  * nice!nano v2 overlay for prospector_adapter
  *
- * Pin mapping (nice!nano v2 silkscreen → nRF52840 GPIO):
+ * Pin mapping (nice!nano v2 silkscreen -> nRF52840 GPIO):
  *   D1  = P0.06   backlight PWM
  *   D2  = P0.17   APDS9960 INT
  *   D3  = P0.20   SPI SCK
@@ -9,7 +9,7 @@ c/*
  *   D5  = P0.24   display DC (data/command)
  *   D6  = P1.00   display RST
  *   D7  = P0.11   display CS
- *   D8  = P1.04   SPI MISO (unused — write-only display, pin reserved)
+ *   D8  = P1.04   SPI MISO (unused - write-only display, pin reserved)
  *   D20 = P0.29   I2C SDA
  *   D21 = P0.31   I2C SCL
  *
@@ -26,7 +26,7 @@ c/*
     };
 };
 
-/* SPI2 shares pins we need — disable it */
+/* SPI2 shares pins we need - disable it */
 &spi2 {
     status = "disabled";
 };
@@ -36,7 +36,7 @@ c/*
         group1 {
             psels = <NRF_PSEL(SPIM_SCK,  0, 20)>,   /* D3 */
                     <NRF_PSEL(SPIM_MOSI, 0, 22)>,   /* D4 */
-                    <NRF_PSEL(SPIM_MISO, 1,  4)>;   /* D8 — reserved, not wired */
+                    <NRF_PSEL(SPIM_MISO, 1,  4)>;   /* D8 - reserved, not wired */
         };
     };
 
@@ -79,7 +79,7 @@ c/*
     };
 };
 
-disp_spi: &spi3 {
+&spi3 {
     status = "okay";
     pinctrl-0 = <&spi3_default>;
     pinctrl-1 = <&spi3_sleep>;
