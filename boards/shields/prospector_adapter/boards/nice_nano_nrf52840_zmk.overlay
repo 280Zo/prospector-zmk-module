@@ -126,6 +126,8 @@
 };
 
 &i2c1 {
+    compatible = "nordic,nrf-twi";
+    clock-frequency = <100000>;
     status = "okay";
     pinctrl-0 = <&i2c1_default>;
     pinctrl-1 = <&i2c1_sleep>;

@@ -116,10 +116,12 @@ extern void als_thread(void *d0, void *d1, void *d2) {
 
         if (sensor_sample_fetch(dev)) {
             LOG_ERR("sensor_sample fetch failed\n");
+            continue;
         }
 
         if (sensor_channel_get(dev, SENSOR_CHAN_LIGHT, &intensity)) {
             LOG_ERR("Cannot read ALS data.\n");
+            continue;
         }
 
         // LOG_INF("ambient light intensity %d", intensity.val1);
@@ -135,9 +137,11 @@ extern void als_thread(void *d0, void *d1, void *d2) {
 
                 if (sensor_sample_fetch(dev)) {
                     LOG_ERR("sensor_sample fetch failed\n");
+                    continue;
                 }
                 if (sensor_channel_get(dev, SENSOR_CHAN_LIGHT, &intensity)) {
                     LOG_ERR("Cannot read ALS data.\n");
+                    continue;
                 }
 
                 mapped_brightness = map_light_to_pwm(intensity.val1);
