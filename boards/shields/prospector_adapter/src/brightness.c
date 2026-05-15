@@ -63,27 +63,26 @@ uint8_t map_light_to_pwm(int32_t sensor_reading) {
     return pwm_value;
 }
 
-uint8_t bl_fade(uint8_t source, uint8_t target) {
+int bl_fade(uint8_t source, uint8_t target) {
     bool increasing = target > source;
+    uint8_t brightness = source;
 
-    while ((increasing && current_brightness < target) ||
-           (!increasing && current_brightness > target)) {
+    while ((increasing && brightness < target) ||
+           (!increasing && brightness > target)) {
+        int rc;
 
-        if (!als_backlight_active) {
-            return set_backlight_brightness(0);
+        if (increasing) {
+            brightness = MIN(brightness + FADE_STEP, target);
+        } else {
+            brightness = MAX(brightness - FADE_STEP, target);
         }
 
-        set_backlight_brightness(current_brightness);
-
-        current_brightness += increasing ? FADE_STEP : -FADE_STEP;
-
-        // Ensure we don't overshoot bounds
-        if (current_brightness > 100) {
-            current_brightness = 100;
-        } else if (current_brightness < 0) {
-            current_brightness = 0;
+        rc = set_backlight_brightness(brightness);
+        if (rc != 0) {
+            return rc;
         }
 
+        current_brightness = brightness;
         k_msleep(increasing ? FADE_SLEEP_BRIGHTEN_MS : FADE_SLEEP_DARKEN_MS);
     }
 
@@ -151,8 +150,10 @@ extern void als_thread(void *d0, void *d1, void *d2) {
                     integrator++;
                     // printk("integrator at: %d", integrator);
                     if (integrator >= BURST_SAMPLE_CONSECUTIVE) {
-                        bl_fade(current_brightness, mapped_brightness);
-                        current_brightness = mapped_brightness;
+                        int rc = bl_fade(current_brightness, mapped_brightness);
+                        if (rc != 0) {
+                            LOG_ERR("Failed to fade brightness: %d", rc);
+                        }
                         // LOG_INF("SETTING NEW BRIGHTNESS: %d", mapped_brightness);
                         break;
                     }
@@ -173,11 +174,16 @@ static int als_brightness_activity_listener(const zmk_event_t *eh) {
     switch (ev->state) {
     case ZMK_ACTIVITY_ACTIVE:
         als_backlight_active = true;
-        return set_backlight_brightness(current_brightness);
+        return bl_fade(0, current_brightness);
     case ZMK_ACTIVITY_IDLE:
-    case ZMK_ACTIVITY_SLEEP:
+    case ZMK_ACTIVITY_SLEEP: {
+        uint8_t saved_brightness = current_brightness;
+        int rc = bl_fade(current_brightness, 0);
+
+        current_brightness = saved_brightness;
         als_backlight_active = false;
-        return set_backlight_brightness(0);
+        return rc;
+    }
     default:
         return -EINVAL;
     }
