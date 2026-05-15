@@ -57,6 +57,6 @@ config LED
 
 config PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
     select SENSOR
-    select APDS9960
+    select PROSPECTOR_APDS9960
 
 endif

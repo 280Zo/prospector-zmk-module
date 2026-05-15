@@ -70,6 +70,8 @@ config PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
     bool "Use ambient light sensor for auto brightness"
     default y
 
+rsource "drivers/sensor/apds9960/Kconfig"
+
 config PROSPECTOR_FIXED_BRIGHTNESS
     int "Fixed display brightness"
     default 50

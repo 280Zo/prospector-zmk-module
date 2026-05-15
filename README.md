@@ -146,6 +146,15 @@ CONFIG_PROSPECTOR_FIXED_BRIGHTNESS=80
 > Prospector display backlight is forced to `0` when ZMK enters `IDLE` or `SLEEP`, and restored when activity returns to `ACTIVE`.
 > In fixed mode it restores to `CONFIG_PROSPECTOR_FIXED_BRIGHTNESS`; in ambient-light mode it restores to the current sensor-driven brightness.
 
+When ambient-light brightness is enabled, Prospector uses a module-owned APDS9960 patch driver
+(`CONFIG_PROSPECTOR_APDS9960`). It keeps the normal Zephyr sensor API in use while narrowing the
+driver to the display backlight's ALS-only needs. This patch avoids the stock driver's proximity
+setup and handles an interrupt edge case where the APDS9960 INT line can already be active before
+the fetch path starts waiting.
+
+Do not also enable Zephyr's APDS9960 driver; leave `CONFIG_APDS9960=n` so only one driver binds to
+the `avago,apds9960` devicetree node.
+
 ### Modifiers
 | Name | Description | Default |
 | ---- | ----------- | ------- |

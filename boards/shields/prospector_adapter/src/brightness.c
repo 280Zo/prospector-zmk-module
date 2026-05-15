@@ -113,13 +113,15 @@ extern void als_thread(void *d0, void *d1, void *d2) {
             continue;
         }
 
-        if (sensor_sample_fetch(dev)) {
-            LOG_ERR("sensor_sample fetch failed\n");
+        int rc = sensor_sample_fetch(dev);
+        if (rc != 0) {
+            LOG_ERR("sensor_sample_fetch failed: %d", rc);
             continue;
         }
 
-        if (sensor_channel_get(dev, SENSOR_CHAN_LIGHT, &intensity)) {
-            LOG_ERR("Cannot read ALS data.\n");
+        rc = sensor_channel_get(dev, SENSOR_CHAN_LIGHT, &intensity);
+        if (rc != 0) {
+            LOG_ERR("Cannot read ALS data: %d", rc);
             continue;
         }
 
@@ -134,12 +136,14 @@ extern void als_thread(void *d0, void *d1, void *d2) {
             for (int i = 0; i < BURST_SAMPLE_TIMEOUT; i++) {
                 k_msleep(BURST_SAMPLE_SLEEP_MS);
 
-                if (sensor_sample_fetch(dev)) {
-                    LOG_ERR("sensor_sample fetch failed\n");
+                rc = sensor_sample_fetch(dev);
+                if (rc != 0) {
+                    LOG_ERR("sensor_sample_fetch failed: %d", rc);
                     continue;
                 }
-                if (sensor_channel_get(dev, SENSOR_CHAN_LIGHT, &intensity)) {
-                    LOG_ERR("Cannot read ALS data.\n");
+                rc = sensor_channel_get(dev, SENSOR_CHAN_LIGHT, &intensity);
+                if (rc != 0) {
+                    LOG_ERR("Cannot read ALS data: %d", rc);
                     continue;
                 }
 
