@@ -3,10 +3,9 @@
 config PROSPECTOR_APDS9960
     bool "Prospector APDS9960 ALS sensor"
     depends on DT_HAS_AVAGO_APDS9960_ENABLED
-    depends on !APDS9960
     select GPIO
     select I2C
-    select SENSOR
+    depends on SENSOR
     help
       Enable Prospector's ALS-only APDS9960 driver. This driver binds to
       avago,apds9960 devicetree nodes and provides SENSOR_CHAN_LIGHT through
