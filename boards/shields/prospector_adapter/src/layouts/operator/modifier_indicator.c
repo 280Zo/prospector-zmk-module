@@ -83,17 +83,6 @@ ZMK_SUBSCRIPTION(widget_modifier_indicator, zmk_keycode_state_changed);
 ZMK_SUBSCRIPTION(widget_modifier_indicator, zmk_caps_word_state_changed);
 #endif
 
-static lv_obj_t *create_separator(lv_obj_t *parent) {
-    lv_obj_t *sep = lv_obj_create(parent);
-    lv_obj_set_size(sep, 2, 24);
-    lv_obj_set_style_bg_color(sep, lv_color_hex(DISPLAY_COLOR_MOD_SEPARATOR), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(sep, LV_OPA_COVER, LV_PART_MAIN);
-    lv_obj_set_style_border_width(sep, 0, LV_PART_MAIN);
-    lv_obj_set_style_radius(sep, 0, LV_PART_MAIN);
-    lv_obj_set_style_pad_all(sep, 0, LV_PART_MAIN);
-    return sep;
-}
-
 static lv_obj_t *create_mod_label(lv_obj_t *parent, const char *text) {
     lv_obj_t *label = lv_label_create(parent);
     lv_label_set_text(label, text);
@@ -104,6 +93,7 @@ static lv_obj_t *create_mod_label(lv_obj_t *parent, const char *text) {
 
 int zmk_widget_modifier_indicator_init(struct zmk_widget_modifier_indicator *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
+    lv_obj_clear_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(widget->obj, 230, 24);
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
@@ -114,9 +104,6 @@ int zmk_widget_modifier_indicator_init(struct zmk_widget_modifier_indicator *wid
 
     for (int i = 0; i < 4; i++) {
         widget->mod_labels[i] = create_mod_label(widget->obj, modifier_order_get_text(i));
-        if (i < 3) {
-            create_separator(widget->obj);
-        }
     }
 
     sys_slist_append(&widgets, &widget->node);

@@ -3,6 +3,14 @@
       zephyr,display = &st7789;
    };
 
+   behaviors {
+      /omit-if-no-ref/ pbl: prospector_brightness {
+         compatible = "zmk,behavior-prospector-brightness";
+         #binding-cells = <2>;
+         display-name = "Prospector Brightness";
+      };
+   };
+
    prospector_green_theme: prospector_green_theme {
       compatible = "zmk,prospector-theme";
       left-panel-bg = <0x0D2C26>;
