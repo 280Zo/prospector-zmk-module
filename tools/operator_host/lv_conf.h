@@ -1,0 +1,45 @@
+#ifndef LV_CONF_H
+#define LV_CONF_H
+
+#define LV_COLOR_DEPTH 32
+#define LV_USE_STDLIB_MALLOC LV_STDLIB_BUILTIN
+#define LV_USE_OS LV_OS_NONE
+#define LV_USE_LOG 0
+#define LV_USE_ASSERT_NULL 1
+#define LV_USE_ASSERT_MALLOC 1
+#define LV_MEM_SIZE (1024 * 1024)
+#define LV_DRAW_BUF_STRIDE_ALIGN 4
+#define LV_DRAW_BUF_ALIGN 4
+
+#define LV_USE_LABEL 1
+#define LV_USE_ARC 1
+#define LV_USE_BAR 1
+#define LV_USE_FLEX 1
+#define LV_USE_SNAPSHOT 1
+#define LV_USE_SYSMON 0
+#define LV_USE_MONKEY 0
+#define LV_USE_GRIDNAV 0
+#define LV_USE_FRAGMENT 0
+#define LV_USE_IMGFONT 0
+#define LV_USE_OBSERVER 0
+#define LV_USE_IME_PINYIN 0
+#define LV_USE_FILE_EXPLORER 0
+#define LV_USE_FONT_MANAGER 0
+#define LV_USE_XML 0
+
+#define LV_USE_LODEPNG 0
+#define LV_USE_LIBPNG 0
+#define LV_USE_BMP 0
+#define LV_USE_GIF 0
+#define LV_USE_QRCODE 0
+#define LV_USE_BARCODE 0
+#define LV_USE_FREETYPE 0
+#define LV_USE_TINY_TTF 0
+#define LV_USE_RLOTTIE 0
+#define LV_USE_FFMPEG 0
+#define LV_USE_SVG 0
+
+#define LV_FONT_MONTSERRAT_14 1
+#define LV_FONT_DEFAULT &lv_font_montserrat_14
+
+#endif

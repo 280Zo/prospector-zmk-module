@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+
+description: Prospector display brightness behavior
+
+compatible: "zmk,behavior-prospector-brightness"
+
+include: two_param.yaml
