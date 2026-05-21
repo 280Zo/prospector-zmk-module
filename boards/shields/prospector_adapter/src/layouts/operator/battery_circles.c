@@ -137,6 +137,11 @@ static void animate_arc_width(lv_obj_t *arc, int32_t target_width) {
         return;
     }
 
+#ifdef PROSPECTOR_RENDER_INSTANT_BATTERY
+    arc_width_anim_cb(arc, target_width);
+    return;
+#endif
+
     lv_anim_t anim;
     lv_anim_init(&anim);
     lv_anim_set_var(&anim, arc);
@@ -157,6 +162,11 @@ static void animate_arc_value(lv_obj_t *arc, int32_t target_value) {
     if (current_value == target_value) {
         return;
     }
+
+#ifdef PROSPECTOR_RENDER_INSTANT_BATTERY
+    arc_value_anim_cb(arc, target_value);
+    return;
+#endif
 
     lv_anim_t anim;
     lv_anim_init(&anim);
@@ -226,7 +236,13 @@ static void update_peripheral_display(uint8_t source) {
             lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING), LV_PART_MAIN);
             lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL), LV_PART_INDICATOR);
         }
-        lv_bar_set_value(bar, connected ? level : 0, LV_ANIM_ON);
+        lv_bar_set_value(bar, connected ? level : 0,
+#ifdef PROSPECTOR_RENDER_INSTANT_BATTERY
+                         LV_ANIM_OFF
+#else
+                         LV_ANIM_ON
+#endif
+        );
     }
 
     if (label_box) {
@@ -361,6 +377,7 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
     init_styles();
 
     widget->obj = lv_obj_create(parent);
+    lv_obj_clear_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(widget->obj, 132, 62);
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
@@ -371,6 +388,7 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
         int arc_left = 132 - 6 - arc_size;
 
         lv_obj_t *arc = lv_arc_create(widget->obj);
+        lv_obj_clear_flag(arc, LV_OBJ_FLAG_SCROLLABLE);
         peripheral_arcs[0] = arc;
         lv_obj_set_size(arc, arc_size, arc_size);
         lv_obj_align(arc, LV_ALIGN_RIGHT_MID, -6, 0);
@@ -386,6 +404,7 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
         lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
 
         lv_obj_t *label_box = lv_obj_create(widget->obj);
+        lv_obj_clear_flag(label_box, LV_OBJ_FLAG_SCROLLABLE);
         peripheral_label_boxes[0] = label_box;
         lv_obj_set_size(label_box, arc_left - 6, 25);
         lv_obj_set_pos(label_box, 0, 2);
@@ -418,6 +437,7 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
 
         for (int i = 0; i < 2; i++) {
             lv_obj_t *arc = lv_arc_create(widget->obj);
+            lv_obj_clear_flag(arc, LV_OBJ_FLAG_SCROLLABLE);
             peripheral_arcs[i] = arc;
             lv_obj_set_size(arc, arc_size, arc_size);
             lv_obj_set_pos(arc, i * spacing, y_center);
@@ -433,6 +453,7 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
             lv_obj_clear_flag(arc, LV_OBJ_FLAG_CLICKABLE);
 
             lv_obj_t *label_box = lv_obj_create(arc);
+            lv_obj_clear_flag(label_box, LV_OBJ_FLAG_SCROLLABLE);
             peripheral_label_boxes[i] = label_box;
             lv_obj_set_size(label_box, 25, 25);
             lv_obj_set_pos(label_box, 0, 0);
@@ -465,6 +486,7 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
             int unit_x = i * (unit_width + set_gap);
 
             lv_obj_t *label_box = lv_obj_create(widget->obj);
+            lv_obj_clear_flag(label_box, LV_OBJ_FLAG_SCROLLABLE);
             peripheral_label_boxes[i] = label_box;
             lv_obj_set_size(label_box, box_width, box_height);
             lv_obj_set_pos(label_box, unit_x, 1);
@@ -491,6 +513,7 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
             lv_obj_align_to(battery_label, label_box, LV_ALIGN_OUT_BOTTOM_MID, 0, 3);
 
             lv_obj_t *bar = lv_bar_create(widget->obj);
+            lv_obj_clear_flag(bar, LV_OBJ_FLAG_SCROLLABLE);
             peripheral_bars[i] = bar;
             lv_obj_set_size(bar, bar_width, bar_height);
             lv_obj_set_pos(bar, unit_x + box_width + box_bar_gap, 0);

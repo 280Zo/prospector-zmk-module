@@ -78,6 +78,13 @@ config PROSPECTOR_FIXED_BRIGHTNESS
     range 1 100
     depends on !PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
 
+config PROSPECTOR_BRIGHTNESS_STEP
+    int "Display brightness step"
+    default 10
+    range 1 100
+    help
+      Percentage-point step used by Prospector display brightness key bindings.
+
 config PROSPECTOR_LAYER_NAME_UPPERCASE
     bool "Display layer names in uppercase"
     default y

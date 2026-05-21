@@ -1,10 +1,11 @@
-#include <zephyr/kernel.h>
 #include <zephyr/device.h>
-#include <zephyr/drivers/sensor.h>
-#include <zephyr/drivers/pwm.h>
 #include <zephyr/drivers/led.h>
+#include <zephyr/drivers/pwm.h>
+#include <zephyr/drivers/sensor.h>
+#include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 
+#include <prospector/brightness.h>
 #include <zephyr/logging/log.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/activity_state_changed.h>
@@ -23,52 +24,44 @@ static int set_backlight_brightness(uint8_t brightness) {
 }
 
 #ifdef CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
+#define PROSPECTOR_DEFAULT_BRIGHTNESS 100
+#define PROSPECTOR_DEFAULT_AUTO_MODE true
+#else
+#define PROSPECTOR_DEFAULT_BRIGHTNESS CONFIG_PROSPECTOR_FIXED_BRIGHTNESS
+#define PROSPECTOR_DEFAULT_AUTO_MODE false
+#endif
 
-static uint8_t current_brightness = 100;
-static volatile bool als_backlight_active = true;
+static uint8_t target_brightness = PROSPECTOR_DEFAULT_BRIGHTNESS;
+static uint8_t displayed_brightness = PROSPECTOR_DEFAULT_BRIGHTNESS;
+static bool backlight_active = true;
+static bool auto_brightness_enabled = PROSPECTOR_DEFAULT_AUTO_MODE;
+K_MUTEX_DEFINE(brightness_lock);
 
-#define SENSOR_MIN      0       // Minimum sensor reading
-#define SENSOR_MAX      100   // Maximum sensor reading
-#define PWM_MIN         1       // Minimum PWM duty cycle (%) - keep display visible
-#define PWM_MAX         100     // Maximum PWM duty cycle (%)
+#define PWM_MIN 1   // Minimum PWM duty cycle (%) - keep display visible
+#define PWM_MAX 100 // Maximum PWM duty cycle (%)
 
-#define FADE_STEP                        1
-#define FADE_SLEEP_BRIGHTEN_MS           3
-#define FADE_SLEEP_DARKEN_MS             10
-#define FADE_THRESHOLD                   10
+#define FADE_STEP 1
+#define FADE_SLEEP_BRIGHTEN_MS 3
+#define FADE_SLEEP_DARKEN_MS 10
 
-#define NORMAL_SAMPLE_SLEEP_MS           100
+static uint8_t clamp_brightness(uint8_t brightness) { return CLAMP(brightness, PWM_MIN, PWM_MAX); }
 
-#define BURST_SAMPLE_SLEEP_MS            30
-#define BURST_SAMPLE_TIMEOUT             10
-#define BURST_SAMPLE_CONSECUTIVE         3
-
-uint8_t map_light_to_pwm(int32_t sensor_reading) {
-    // Handle invalid/error readings
-    if (sensor_reading < SENSOR_MIN) {
-        return PWM_MIN;  // Default to minimum brightness on error
-    }
-
-    // Clamp to maximum
-    if (sensor_reading > SENSOR_MAX) {
-        sensor_reading = SENSOR_MAX;
-    }
-
-    // Linear mapping
-    uint8_t pwm_value = (uint8_t)(
-        PWM_MIN + ((PWM_MAX - PWM_MIN) *
-        (sensor_reading - SENSOR_MIN)) / (SENSOR_MAX - SENSOR_MIN)
-    );
-
-    return pwm_value;
+static void set_displayed_brightness(uint8_t brightness) {
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    displayed_brightness = brightness;
+    k_mutex_unlock(&brightness_lock);
 }
 
-int bl_fade(uint8_t source, uint8_t target) {
+static int bl_fade(uint8_t source, uint8_t target) {
     bool increasing = target > source;
     uint8_t brightness = source;
 
-    while ((increasing && brightness < target) ||
-           (!increasing && brightness > target)) {
+    if (source == target) {
+        set_displayed_brightness(target);
+        return 0;
+    }
+
+    while ((increasing && brightness < target) || (!increasing && brightness > target)) {
         int rc;
 
         if (increasing) {
@@ -82,11 +75,120 @@ int bl_fade(uint8_t source, uint8_t target) {
             return rc;
         }
 
-        current_brightness = brightness;
+        set_displayed_brightness(brightness);
         k_msleep(increasing ? FADE_SLEEP_BRIGHTEN_MS : FADE_SLEEP_DARKEN_MS);
     }
 
     return 0;
+}
+
+static int set_target_brightness(uint8_t brightness, bool manual_mode) {
+    uint8_t source;
+    uint8_t target = clamp_brightness(brightness);
+    bool active;
+
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    if (manual_mode) {
+        auto_brightness_enabled = false;
+    }
+    target_brightness = target;
+    source = displayed_brightness;
+    active = backlight_active;
+    k_mutex_unlock(&brightness_lock);
+
+    if (!active) {
+        return 0;
+    }
+
+    return bl_fade(source, target);
+}
+
+int prospector_brightness_auto_on(void) {
+#ifdef CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    auto_brightness_enabled = true;
+    k_mutex_unlock(&brightness_lock);
+    return 0;
+#else
+    return -ENOTSUP;
+#endif
+}
+
+int prospector_brightness_manual_on(void) {
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    auto_brightness_enabled = false;
+    k_mutex_unlock(&brightness_lock);
+    return 0;
+}
+
+int prospector_brightness_toggle_auto(void) {
+#ifdef CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    auto_brightness_enabled = !auto_brightness_enabled;
+    k_mutex_unlock(&brightness_lock);
+    return 0;
+#else
+    return -ENOTSUP;
+#endif
+}
+
+int prospector_brightness_set_manual(uint8_t brightness) {
+    return set_target_brightness(brightness, true);
+}
+
+int prospector_brightness_manual_step(int direction) {
+    uint8_t next;
+
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    if (direction > 0) {
+        next = MIN(target_brightness + CONFIG_PROSPECTOR_BRIGHTNESS_STEP, PWM_MAX);
+    } else {
+        next = MAX(target_brightness - CONFIG_PROSPECTOR_BRIGHTNESS_STEP, PWM_MIN);
+    }
+    k_mutex_unlock(&brightness_lock);
+
+    return set_target_brightness(next, true);
+}
+
+bool prospector_brightness_is_auto(void) {
+    bool enabled;
+
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    enabled = auto_brightness_enabled;
+    k_mutex_unlock(&brightness_lock);
+
+    return enabled;
+}
+
+#ifdef CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
+
+#define SENSOR_MIN 0   // Minimum sensor reading
+#define SENSOR_MAX 100 // Maximum sensor reading
+
+#define FADE_THRESHOLD 10
+
+#define NORMAL_SAMPLE_SLEEP_MS 100
+
+#define BURST_SAMPLE_SLEEP_MS 30
+#define BURST_SAMPLE_TIMEOUT 10
+#define BURST_SAMPLE_CONSECUTIVE 3
+
+uint8_t map_light_to_pwm(int32_t sensor_reading) {
+    // Handle invalid/error readings
+    if (sensor_reading < SENSOR_MIN) {
+        return PWM_MIN; // Default to minimum brightness on error
+    }
+
+    // Clamp to maximum
+    if (sensor_reading > SENSOR_MAX) {
+        sensor_reading = SENSOR_MAX;
+    }
+
+    // Linear mapping
+    uint8_t pwm_value = (uint8_t)(PWM_MIN + ((PWM_MAX - PWM_MIN) * (sensor_reading - SENSOR_MIN)) /
+                                                (SENSOR_MAX - SENSOR_MIN));
+
+    return pwm_value;
 }
 
 extern void als_thread(void *d0, void *d1, void *d2) {
@@ -109,7 +211,17 @@ extern void als_thread(void *d0, void *d1, void *d2) {
 
         k_msleep(NORMAL_SAMPLE_SLEEP_MS);
 
-        if (!als_backlight_active) {
+        uint8_t compare_brightness;
+        bool active;
+        bool auto_enabled;
+
+        k_mutex_lock(&brightness_lock, K_FOREVER);
+        active = backlight_active;
+        auto_enabled = auto_brightness_enabled;
+        compare_brightness = target_brightness;
+        k_mutex_unlock(&brightness_lock);
+
+        if (!active || !auto_enabled) {
             continue;
         }
 
@@ -130,10 +242,12 @@ extern void als_thread(void *d0, void *d1, void *d2) {
         mapped_brightness = map_light_to_pwm(intensity.val1);
         // LOG_INF("NORMAL: mapped PWM duty cycle %d\n", mapped_brightness);
 
-        if (abs(mapped_brightness - current_brightness) > FADE_THRESHOLD) {
+        if (abs(mapped_brightness - compare_brightness) > FADE_THRESHOLD) {
             uint8_t integrator = 0;
 
             for (int i = 0; i < BURST_SAMPLE_TIMEOUT; i++) {
+                uint8_t burst_compare_brightness;
+
                 k_msleep(BURST_SAMPLE_SLEEP_MS);
 
                 rc = sensor_sample_fetch(dev);
@@ -150,11 +264,21 @@ extern void als_thread(void *d0, void *d1, void *d2) {
                 mapped_brightness = map_light_to_pwm(intensity.val1);
                 // LOG_INF("BURST: mapped PWM duty cycle %d\n", mapped_brightness);
 
-                if (abs(mapped_brightness - current_brightness) > FADE_THRESHOLD) {
+                k_mutex_lock(&brightness_lock, K_FOREVER);
+                active = backlight_active;
+                auto_enabled = auto_brightness_enabled;
+                burst_compare_brightness = target_brightness;
+                k_mutex_unlock(&brightness_lock);
+
+                if (!active || !auto_enabled) {
+                    break;
+                }
+
+                if (abs(mapped_brightness - burst_compare_brightness) > FADE_THRESHOLD) {
                     integrator++;
                     // printk("integrator at: %d", integrator);
                     if (integrator >= BURST_SAMPLE_CONSECUTIVE) {
-                        int rc = bl_fade(current_brightness, mapped_brightness);
+                        rc = set_target_brightness(mapped_brightness, false);
                         if (rc != 0) {
                             LOG_ERR("Failed to fade brightness: %d", rc);
                         }
@@ -164,7 +288,8 @@ extern void als_thread(void *d0, void *d1, void *d2) {
                 }
             }
         }
-        // led_set_brightness(pwm_leds_dev, DISP_BL, map_light_to_pwm(intensity.val1));
+        // led_set_brightness(pwm_leds_dev, DISP_BL,
+        // map_light_to_pwm(intensity.val1));
     }
 }
 
@@ -176,17 +301,21 @@ static int als_brightness_activity_listener(const zmk_event_t *eh) {
     }
 
     switch (ev->state) {
-    case ZMK_ACTIVITY_ACTIVE:
-        als_backlight_active = true;
-        return bl_fade(0, current_brightness);
+    case ZMK_ACTIVITY_ACTIVE: {
+        k_mutex_lock(&brightness_lock, K_FOREVER);
+        backlight_active = true;
+        uint8_t restore_brightness = target_brightness;
+        k_mutex_unlock(&brightness_lock);
+        return bl_fade(0, restore_brightness);
+    }
     case ZMK_ACTIVITY_IDLE:
     case ZMK_ACTIVITY_SLEEP: {
-        uint8_t saved_brightness = current_brightness;
-        int rc = bl_fade(current_brightness, 0);
+        k_mutex_lock(&brightness_lock, K_FOREVER);
+        uint8_t source_brightness = displayed_brightness;
+        backlight_active = false;
+        k_mutex_unlock(&brightness_lock);
 
-        current_brightness = saved_brightness;
-        als_backlight_active = false;
-        return rc;
+        return bl_fade(source_brightness, 0);
     }
     default:
         return -EINVAL;
@@ -201,10 +330,6 @@ K_THREAD_DEFINE(als_tid, 1024, als_thread, NULL, NULL, NULL, K_LOWEST_APPLICATIO
 
 #else
 
-static int set_fixed_brightness(uint8_t brightness) {
-    return set_backlight_brightness(brightness);
-}
-
 static int fixed_brightness_activity_listener(const zmk_event_t *eh) {
     struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
 
@@ -213,11 +338,21 @@ static int fixed_brightness_activity_listener(const zmk_event_t *eh) {
     }
 
     switch (ev->state) {
-    case ZMK_ACTIVITY_ACTIVE:
-        return set_fixed_brightness(CONFIG_PROSPECTOR_FIXED_BRIGHTNESS);
+    case ZMK_ACTIVITY_ACTIVE: {
+        k_mutex_lock(&brightness_lock, K_FOREVER);
+        backlight_active = true;
+        uint8_t restore_brightness = target_brightness;
+        k_mutex_unlock(&brightness_lock);
+        return bl_fade(0, restore_brightness);
+    }
     case ZMK_ACTIVITY_IDLE:
-    case ZMK_ACTIVITY_SLEEP:
-        return set_fixed_brightness(0);
+    case ZMK_ACTIVITY_SLEEP: {
+        k_mutex_lock(&brightness_lock, K_FOREVER);
+        uint8_t source_brightness = displayed_brightness;
+        backlight_active = false;
+        k_mutex_unlock(&brightness_lock);
+        return bl_fade(source_brightness, 0);
+    }
     default:
         return -EINVAL;
     }
@@ -227,7 +362,7 @@ ZMK_LISTENER(prospector_fixed_brightness, fixed_brightness_activity_listener);
 ZMK_SUBSCRIPTION(prospector_fixed_brightness, zmk_activity_state_changed);
 
 static int init_fixed_brightness(void) {
-    return set_fixed_brightness(CONFIG_PROSPECTOR_FIXED_BRIGHTNESS);
+    return set_backlight_brightness(CONFIG_PROSPECTOR_FIXED_BRIGHTNESS);
 }
 
 SYS_INIT(init_fixed_brightness, APPLICATION, CONFIG_APPLICATION_INIT_PRIORITY);

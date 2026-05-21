@@ -17,6 +17,10 @@ if(CONFIG_SHIELD_PROSPECTOR_ADAPTER)
                 target_sources(app PRIVATE src/behaviors/behavior_caps_word.c)
         endif()
 
+        if(CONFIG_DT_HAS_ZMK_BEHAVIOR_PROSPECTOR_BRIGHTNESS_ENABLED)
+                target_sources(app PRIVATE src/behaviors/behavior_prospector_brightness.c)
+        endif()
+
         zephyr_library_sources(src/events/split_central_status_changed.c)
         zephyr_library_sources(src/split/bluetooth/central_status_changed_observer.c)
 

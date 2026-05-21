@@ -13,6 +13,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 - [Installation](#installation)
 - [Status Screens](#status-screens)
 - [Usage](#usage)
+- [Brightness Controls](#brightness-controls)
 - [Idle Timeout (Display + Backlight)](#idle-timeout-display--backlight)
 - [Configuration](#configuration)
 - [Troubleshooting](#troubleshooting)
@@ -75,6 +76,11 @@ CONFIG_PROSPECTOR_STATUS_SCREEN_FIELD=y
 CONFIG_PROSPECTOR_STATUS_SCREEN_OPERATOR=y
 ```
 
+To capture Operator screen renders for documentation, see
+[Operator Status Render](docs/operator-status-render.md). The render script
+compiles the Operator LVGL widgets locally and keeps external ZMK/Zephyr/LVGL
+dependencies in an ignored local cache.
+
 ## Usage
 
 For split keyboards, the peripheral battery widget arranges sub-widgets in pairing order. After flashing the dongle, pair the left side first, then the right side. For more than two peripherals, pair them left to right.
@@ -92,6 +98,35 @@ keymap {
   }
 }
 ```
+
+## Brightness Controls
+
+Prospector exposes a `&pbl` behavior for display backlight control. Add this include to the top of
+your keymap:
+
+```dts
+#include <dt-bindings/prospector/brightness.h>
+```
+
+Then bind keys like this:
+
+```dts
+bindings = <
+  &pbl PBL_TOG  /* toggle ambient sensor/manual mode */
+  &pbl PBL_INC  /* switch to manual mode and brighten */
+  &pbl PBL_DEC  /* switch to manual mode and dim */
+>;
+```
+
+Additional commands are available:
+
+```dts
+&pbl PBL_AUTO      /* force ambient sensor mode */
+&pbl PBL_MANUAL    /* force manual mode at the current brightness */
+&pbl PBL_SET 75    /* switch to manual mode and set 75% brightness */
+```
+
+`PBL_INC` and `PBL_DEC` use `CONFIG_PROSPECTOR_BRIGHTNESS_STEP`, which defaults to `10`.
 
 ## Idle Timeout (Display + Backlight)
 
@@ -139,6 +174,7 @@ CONFIG_PROSPECTOR_FIXED_BRIGHTNESS=80
 | `CONFIG_PROSPECTOR_ROTATE_DISPLAY_180` | Rotate the display 180 degrees | n |
 | `CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR` | Use ambient light sensor for auto brightness | y |
 | `CONFIG_PROSPECTOR_FIXED_BRIGHTNESS` | Fixed display brightness when not using ambient light sensor | 50 (1-100) |
+| `CONFIG_PROSPECTOR_BRIGHTNESS_STEP` | Brightness percentage-point step for `&pbl PBL_INC` / `&pbl PBL_DEC` | 10 |
 | `CONFIG_PROSPECTOR_LAYER_NAME_UPPERCASE` | Convert layer names to uppercase (Operator and Radii only) | y |
 | `CONFIG_ZMK_IDLE_TIMEOUT` | Inactivity time before ZMK enters `IDLE` (backlight turns off; display blanking also requires `CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE`) | ZMK default |
 

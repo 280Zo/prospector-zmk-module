@@ -37,6 +37,7 @@ ZMK_SUBSCRIPTION(widget_layer_display, zmk_layer_state_changed);
 
 int zmk_widget_layer_display_init(struct zmk_widget_layer_display *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
+    lv_obj_clear_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(widget->obj, 260, 6);
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
@@ -47,6 +48,7 @@ int zmk_widget_layer_display_init(struct zmk_widget_layer_display *widget, lv_ob
 
     for (int i = 0; i < LAYER_DOT_COUNT; i++) {
         widget->dots[i] = lv_obj_create(widget->obj);
+        lv_obj_clear_flag(widget->dots[i], LV_OBJ_FLAG_SCROLLABLE);
         lv_obj_set_size(widget->dots[i], dot_width, 6);
         lv_obj_set_pos(widget->dots[i], i * (dot_width + dot_gap), 0);
         lv_obj_set_style_bg_color(widget->dots[i], lv_color_hex(DISPLAY_COLOR_LAYER_DOT_INACTIVE), LV_PART_MAIN);

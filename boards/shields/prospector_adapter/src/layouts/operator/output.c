@@ -106,6 +106,7 @@ ZMK_SUBSCRIPTION(widget_output_profile, zmk_ble_active_profile_changed);
 
 static lv_obj_t *create_toggle_btn(lv_obj_t *parent, const char *text, int x) {
     lv_obj_t *btn = lv_obj_create(parent);
+    lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(btn, 56, 29);
     lv_obj_set_pos(btn, x, 0);
     lv_obj_set_style_radius(btn, 6, LV_PART_MAIN);
@@ -122,6 +123,7 @@ static lv_obj_t *create_toggle_btn(lv_obj_t *parent, const char *text, int x) {
 
 static lv_obj_t *create_slot_btn(lv_obj_t *parent, int index, int x, int width, bool show_number) {
     lv_obj_t *slot = lv_obj_create(parent);
+    lv_obj_clear_flag(slot, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(slot, width, 29);
     lv_obj_set_pos(slot, x, 33);
     lv_obj_set_style_radius(slot, 6, LV_PART_MAIN);
@@ -145,6 +147,7 @@ static lv_obj_t *create_slot_btn(lv_obj_t *parent, int index, int x, int width, 
 
 int zmk_widget_output_init(struct zmk_widget_output *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
+    lv_obj_clear_flag(widget->obj, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(widget->obj, 116, 62);
     lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, LV_PART_MAIN);
     lv_obj_set_style_border_width(widget->obj, 0, LV_PART_MAIN);
