@@ -1,6 +1,13 @@
 / {
    chosen {
       zephyr,display = &st7789;
+      zephyr,touch = &cst816s;
+   };
+
+   lvgl_pointer {
+      compatible = "zephyr,lvgl-pointer-input";
+      input = <&cst816s>;
+      swap-xy;
    };
 
    behaviors {
@@ -8,6 +15,12 @@
          compatible = "zmk,behavior-prospector-brightness";
          #binding-cells = <2>;
          display-name = "Prospector Brightness";
+      };
+
+      /omit-if-no-ref/ pdp: prospector_display_page {
+         compatible = "zmk,behavior-prospector-display-page";
+         #binding-cells = <1>;
+         display-name = "Prospector Display Page";
       };
    };
 

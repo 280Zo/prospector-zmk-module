@@ -1,0 +1,13 @@
+/* SPDX-License-Identifier: MIT */
+
+#pragma once
+
+#define PDP_STATUS_CMD 0
+#define PDP_DIAGNOSTICS_CMD 1
+#define PDP_NEXT_CMD 2
+#define PDP_PREV_CMD 3
+
+#define PDP_STATUS PDP_STATUS_CMD
+#define PDP_DIAGNOSTICS PDP_DIAGNOSTICS_CMD
+#define PDP_NEXT PDP_NEXT_CMD
+#define PDP_PREV PDP_PREV_CMD

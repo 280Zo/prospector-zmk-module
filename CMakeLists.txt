@@ -21,6 +21,10 @@ if(CONFIG_SHIELD_PROSPECTOR_ADAPTER)
                 target_sources(app PRIVATE src/behaviors/behavior_prospector_brightness.c)
         endif()
 
+        if(CONFIG_DT_HAS_ZMK_BEHAVIOR_PROSPECTOR_DISPLAY_PAGE_ENABLED)
+                target_sources(app PRIVATE src/behaviors/behavior_prospector_display_page.c)
+        endif()
+
         zephyr_library_sources(src/events/split_central_status_changed.c)
         zephyr_library_sources(src/split/bluetooth/central_status_changed_observer.c)
 

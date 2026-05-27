@@ -13,6 +13,8 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 - [Installation](#installation)
 - [Status Screens](#status-screens)
 - [Usage](#usage)
+- [Display Page Controls](#display-page-controls)
+- [Hardware Wiring](#hardware-wiring)
 - [Brightness Controls](#brightness-controls)
 - [Idle Timeout (Display + Backlight)](#idle-timeout-display--backlight)
 - [Configuration](#configuration)
@@ -98,6 +100,72 @@ keymap {
   }
 }
 ```
+
+## Display Page Controls
+
+Prospector exposes a `&pdp` behavior for switching display pages. Add this include to the top of
+your keymap:
+
+```dts
+#include <dt-bindings/prospector/display_page.h>
+```
+
+Then bind keys like this:
+
+```dts
+bindings = <
+  &pdp PDP_NEXT         /* switch to the next display page */
+  &pdp PDP_PREV         /* switch to the previous display page */
+  &pdp PDP_STATUS       /* switch directly to the theme status page */
+  &pdp PDP_DIAGNOSTICS  /* switch directly to the diagnostics page */
+>;
+```
+
+## Hardware Wiring
+
+Follow the pin-out diagram and tables to connect the electronics. You can solder
+everything together or you can use mechanical connections for easy removal &
+modification.
+
+Display - Both SKU: 24382 and SKU: 27057
+
+| Signal Name | nice!nano Pin | nice!nano GPIO | XIAO Pin | XIAO GPIO | Function | Prospector Wiring Note |
+| --- | --- | --- | --- | --- | --- | --- |
+| VCC | VCC | - | 3V3 | - | 3.3V Power | Direct to controller 3.3V |
+| GND | GND | - | GND | - | Ground | Direct to controller GND |
+| LCD_DIN | D4 | P0.22 | D10 | P1.15 | SPI MOSI | Data from controller to display |
+| LCD_CLK | D3 | P0.20 | D8 | P1.13 | SPI SCK | Serial clock |
+| LCD_CS | D7 | P0.11 | D9 | P1.14 | SPI chip select | Active low |
+| LCD_DC | D5 | P0.24 | D7 | P1.12 | Data/command | High=data, low=command |
+| LCD_RST | D6 | P1.00 | D3 | P0.29 | Display reset | Active low reset |
+| LCD_BL | D1 | P0.06 | D6 | P1.11 | Backlight PWM | PWM brightness control |
+
+Display Touch
+
+> [!IMPORTANT]
+> The nice!nano touch SCL pin changed from the original wiring. Early builds
+> used `D21 / P0.31` for `TP_SCL`, but that pin proved unreliable on some cheaper
+> Pro Micro-compatible controller boards. Current firmware uses `D15 / P1.13`
+> for `TP_SCL`. If you already built Prospector with the original firmware and
+> want to update, you'll need to move the `TP_SCL` wire from `D21` to `D15`.
+
+| Signal Name | nice!nano Pin | nice!nano GPIO | XIAO Pin | XIAO GPIO | Function | Prospector Wiring Note |
+| --- | --- | --- | --- | --- | --- | --- |
+| TP_SDA | D20 | P0.29 | D4 | P0.04 | I2C SDA | Shared I2C data line |
+| TP_SCL | D15 | P1.13 | D5 | P0.05 | I2C SCL | Shared I2C clock line |
+| TP_RST | D0 | P0.08 | D1 | P0.03 | Touch reset | Active low reset |
+| TP_IRQ | D8 | P1.04 | D0 | P0.02 | Touch interrupt | Active low interrupt |
+
+APDS9960 Ambient Light Sensor (optional, needed for auto-brightness):
+
+| APDS9960 Pin | nice!nano Pin | nice!nano GPIO | XIAO Pin | XIAO GPIO | Function | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| INT | D2 | P0.17 | D2 | P0.28 | Interrupt | Active low with pull-up |
+| SCL | D15 | P1.13 | D5 | P0.05 | I2C SCL | Shared with touch SCL if touch is used |
+| SDA | D20 | P0.29 | D4 | P0.04 | I2C SDA | Shared with touch SDA if touch is used |
+| VCC / VIN | VCC / 3V3 | - | 3V3 | - | Power | Use 3.3V |
+| GND | GND | - | GND | - | Ground | Common ground |
+| VL / LED / 3Vo | - | - | - | - | Breakout-dependent | Unused by this firmware |
 
 ## Brightness Controls
 

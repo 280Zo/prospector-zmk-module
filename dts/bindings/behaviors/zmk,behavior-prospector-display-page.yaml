@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+
+description: Prospector display page switching behavior
+
+compatible: "zmk,behavior-prospector-display-page"
+
+include: one_param.yaml
