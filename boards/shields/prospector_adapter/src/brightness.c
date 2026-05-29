@@ -35,6 +35,8 @@ static uint8_t target_brightness = PROSPECTOR_DEFAULT_BRIGHTNESS;
 static uint8_t displayed_brightness = PROSPECTOR_DEFAULT_BRIGHTNESS;
 static bool backlight_active = true;
 static bool auto_brightness_enabled = PROSPECTOR_DEFAULT_AUTO_MODE;
+static int32_t ambient_light_value;
+static bool ambient_light_valid;
 K_MUTEX_DEFINE(brightness_lock);
 
 #define PWM_MIN 1   // Minimum PWM duty cycle (%) - keep display visible
@@ -160,6 +162,41 @@ bool prospector_brightness_is_auto(void) {
     return enabled;
 }
 
+uint8_t prospector_brightness_get_displayed(void) {
+    uint8_t brightness;
+
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    brightness = displayed_brightness;
+    k_mutex_unlock(&brightness_lock);
+
+    return brightness;
+}
+
+uint8_t prospector_brightness_get_target(void) {
+    uint8_t brightness;
+
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    brightness = target_brightness;
+    k_mutex_unlock(&brightness_lock);
+
+    return brightness;
+}
+
+bool prospector_brightness_get_ambient_light(int32_t *value) {
+    bool valid;
+
+    if (value == NULL) {
+        return false;
+    }
+
+    k_mutex_lock(&brightness_lock, K_FOREVER);
+    *value = ambient_light_value;
+    valid = ambient_light_valid;
+    k_mutex_unlock(&brightness_lock);
+
+    return valid;
+}
+
 #ifdef CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
 
 #define SENSOR_MIN 0   // Minimum sensor reading
@@ -237,6 +274,11 @@ extern void als_thread(void *d0, void *d1, void *d2) {
             continue;
         }
 
+        k_mutex_lock(&brightness_lock, K_FOREVER);
+        ambient_light_value = intensity.val1;
+        ambient_light_valid = true;
+        k_mutex_unlock(&brightness_lock);
+
         // LOG_INF("ambient light intensity %d", intensity.val1);
 
         mapped_brightness = map_light_to_pwm(intensity.val1);
@@ -260,6 +302,11 @@ extern void als_thread(void *d0, void *d1, void *d2) {
                     LOG_ERR("Cannot read ALS data: %d", rc);
                     continue;
                 }
+
+                k_mutex_lock(&brightness_lock, K_FOREVER);
+                ambient_light_value = intensity.val1;
+                ambient_light_valid = true;
+                k_mutex_unlock(&brightness_lock);
 
                 mapped_brightness = map_light_to_pwm(intensity.val1);
                 // LOG_INF("BURST: mapped PWM duty cycle %d\n", mapped_brightness);

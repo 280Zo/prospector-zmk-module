@@ -9,6 +9,10 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
 #include <zmk/display.h>
+#include <zmk/event_manager.h>
+#include <zmk/events/keycode_state_changed.h>
+
+#include <prospector/brightness.h>
 
 #if LV_FONT_MONTSERRAT_14
 #define DIAGNOSTICS_FONT (&lv_font_montserrat_14)
@@ -22,14 +26,40 @@
 #define FIRMWARE_VERSION_STRING "--"
 #endif
 
+#define KEY_PRESS_COUNT_MAX 999999999
+
 static lv_obj_t *uptime_value;
+static lv_obj_t *brightness_value;
+static lv_obj_t *ambient_light_value;
+static lv_obj_t *key_count_value;
 static atomic_t diagnostics_visible;
+static atomic_t key_press_count;
 
-static void uptime_tick_work_handler(struct k_work *work);
-static void uptime_update_work_handler(struct k_work *work);
+static void diagnostics_tick_work_handler(struct k_work *work);
+static void diagnostics_update_work_handler(struct k_work *work);
 
-K_WORK_DELAYABLE_DEFINE(uptime_tick_work, uptime_tick_work_handler);
-K_WORK_DEFINE(uptime_update_work, uptime_update_work_handler);
+K_WORK_DELAYABLE_DEFINE(diagnostics_tick_work, diagnostics_tick_work_handler);
+K_WORK_DEFINE(diagnostics_update_work, diagnostics_update_work_handler);
+
+static int diagnostics_keycode_state_changed_listener(const zmk_event_t *eh) {
+    const struct zmk_keycode_state_changed *ev = as_zmk_keycode_state_changed(eh);
+
+    if (ev != NULL && ev->state) {
+        atomic_val_t current;
+
+        do {
+            current = atomic_get(&key_press_count);
+            if (current >= KEY_PRESS_COUNT_MAX) {
+                return ZMK_EV_EVENT_BUBBLE;
+            }
+        } while (!atomic_cas(&key_press_count, current, current + 1));
+    }
+
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(prospector_diagnostics_key_count, diagnostics_keycode_state_changed_listener);
+ZMK_SUBSCRIPTION(prospector_diagnostics_key_count, zmk_keycode_state_changed);
 
 static lv_obj_t *create_label(lv_obj_t *parent, const char *text, int x, int y,
                               lv_color_t color) {
@@ -79,19 +109,19 @@ static lv_obj_t *create_panel(lv_obj_t *parent, int x, int y, int width, int hei
     return panel;
 }
 
-static void create_metric_panel(lv_obj_t *parent, int x, int y, int width, const char *label,
-                                const char *value, lv_color_t value_color) {
+static lv_obj_t *create_metric_panel(lv_obj_t *parent, int x, int y, int width, const char *label,
+                                     const char *value, lv_color_t value_color) {
     lv_obj_t *panel = create_panel(parent, x, y, width, 42);
 
     create_label(panel, label, 8, 6, lv_color_hex(0x8a949c));
-    create_label(panel, value, 8, 22, value_color);
+    return create_label(panel, value, 8, 22, value_color);
 }
 
 static void create_key_count_panel(lv_obj_t *parent, int x, int y, int width) {
     lv_obj_t *panel = create_panel(parent, x, y, width, 42);
 
     create_label(panel, "KEYS PRESSED", 8, 5, lv_color_hex(0x8a949c));
-    create_label(panel, "000000", 8, 25, lv_color_hex(0x70e8f0));
+    key_count_value = create_label(panel, "000000", 8, 25, lv_color_hex(0x70e8f0));
 }
 
 static void create_ble_row(lv_obj_t *parent, int y, const char *side, const char *bars,
@@ -107,6 +137,72 @@ static lv_obj_t *create_firmware_version_label(lv_obj_t *parent, int x, int y) {
 
     snprintk(firmware_text, sizeof(firmware_text), "zmk %s", FIRMWARE_VERSION_STRING);
     return create_label(parent, firmware_text, x, y, lv_color_hex(0x90ee7e));
+}
+
+static void update_brightness_label(void) {
+    static char brightness_text[16];
+    uint8_t brightness = prospector_brightness_get_displayed();
+    const char *mode = prospector_brightness_is_auto() ? "A" : "M";
+
+    if (brightness_value == NULL) {
+        return;
+    }
+
+    snprintk(brightness_text, sizeof(brightness_text), "%s %u%%", mode, brightness);
+    lv_label_set_text(brightness_value, brightness_text);
+}
+
+static void update_key_count_label(void) {
+    static char key_count_text[8];
+    atomic_val_t count = atomic_get(&key_press_count);
+
+    if (key_count_value == NULL) {
+        return;
+    }
+
+    if (count < 10000) {
+        snprintk(key_count_text, sizeof(key_count_text), "%ld", (long)count);
+    } else if (count < 100000) {
+        snprintk(key_count_text, sizeof(key_count_text), "%ld.%ldk", (long)(count / 1000),
+                 (long)((count / 100) % 10));
+    } else if (count < 1000000) {
+        snprintk(key_count_text, sizeof(key_count_text), "%ldk", (long)(count / 1000));
+    } else if (count < 10000000) {
+        snprintk(key_count_text, sizeof(key_count_text), "%ld.%ldM", (long)(count / 1000000),
+                 (long)((count / 100000) % 10));
+    } else if (count < KEY_PRESS_COUNT_MAX) {
+        snprintk(key_count_text, sizeof(key_count_text), "%ldM", (long)(count / 1000000));
+    } else {
+        snprintk(key_count_text, sizeof(key_count_text), "999M+");
+    }
+
+    lv_label_set_text(key_count_value, key_count_text);
+}
+
+static void update_ambient_light_label(void) {
+    static char ambient_text[16];
+    int32_t light;
+
+    if (ambient_light_value == NULL) {
+        return;
+    }
+
+    if (!prospector_brightness_get_ambient_light(&light)) {
+        lv_label_set_text(ambient_light_value, "N/A");
+        return;
+    }
+
+    if (light > 999) {
+        lv_label_set_text(ambient_light_value, "999+ lx");
+        return;
+    }
+
+    if (light < 0) {
+        light = 0;
+    }
+
+    snprintk(ambient_text, sizeof(ambient_text), "%d lx", light);
+    lv_label_set_text(ambient_light_value, ambient_text);
 }
 
 static void update_uptime_label(void) {
@@ -130,15 +226,15 @@ static void update_uptime_label(void) {
     lv_label_set_text(uptime_value, uptime_text);
 }
 
-static void uptime_tick_work_handler(struct k_work *work) {
+static void diagnostics_tick_work_handler(struct k_work *work) {
     ARG_UNUSED(work);
 
     if (atomic_get(&diagnostics_visible) && zmk_display_is_initialized()) {
-        k_work_submit_to_queue(zmk_display_work_q(), &uptime_update_work);
+        k_work_submit_to_queue(zmk_display_work_q(), &diagnostics_update_work);
     }
 }
 
-static void uptime_update_work_handler(struct k_work *work) {
+static void diagnostics_update_work_handler(struct k_work *work) {
     ARG_UNUSED(work);
 
     if (!atomic_get(&diagnostics_visible)) {
@@ -146,7 +242,10 @@ static void uptime_update_work_handler(struct k_work *work) {
     }
 
     update_uptime_label();
-    k_work_schedule(&uptime_tick_work, K_MINUTES(1));
+    update_key_count_label();
+    update_brightness_label();
+    update_ambient_light_label();
+    k_work_schedule(&diagnostics_tick_work, K_SECONDS(1));
 }
 
 lv_obj_t *prospector_diagnostics_page_create(lv_obj_t *parent) {
@@ -172,8 +271,10 @@ lv_obj_t *prospector_diagnostics_page_create(lv_obj_t *parent) {
 
     create_key_count_panel(page, 7, 34, 176);
 
-    create_metric_panel(page, 190, 34, 76, "BL", "auto 100%", lv_color_hex(0xffd84a));
-    create_metric_panel(page, 190, 80, 76, "ALS", "N/A", lv_color_hex(0xb88cff));
+    brightness_value =
+        create_metric_panel(page, 190, 34, 76, "BRIGHT", "--", lv_color_hex(0xffd84a));
+    ambient_light_value =
+        create_metric_panel(page, 190, 80, 76, "ALS", "N/A", lv_color_hex(0xb88cff));
     create_metric_panel(page, 190, 126, 76, "MEM", "--/--", lv_color_hex(0x70e8f0));
 
     lv_obj_t *ble_panel = create_panel(page, 7, 84, 176, 86);
@@ -187,6 +288,9 @@ lv_obj_t *prospector_diagnostics_page_create(lv_obj_t *parent) {
     create_firmware_version_label(fw_panel, 8, 20);
     uptime_value = create_right_label(fw_panel, "0d 00h 00m", 20, lv_color_hex(0x90ee7e));
     update_uptime_label();
+    update_key_count_label();
+    update_brightness_label();
+    update_ambient_light_label();
 
     lv_obj_add_flag(page, LV_OBJ_FLAG_HIDDEN);
 
@@ -198,8 +302,11 @@ void prospector_diagnostics_page_set_visible(bool visible) {
 
     if (visible) {
         update_uptime_label();
-        k_work_schedule(&uptime_tick_work, K_MINUTES(1));
+        update_key_count_label();
+        update_brightness_label();
+        update_ambient_light_label();
+        k_work_schedule(&diagnostics_tick_work, K_SECONDS(1));
     } else {
-        k_work_cancel_delayable(&uptime_tick_work);
+        k_work_cancel_delayable(&diagnostics_tick_work);
     }
 }
