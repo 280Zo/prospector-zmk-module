@@ -14,6 +14,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 - [Status Screens](#status-screens)
 - [Usage](#usage)
 - [Display Page Controls](#display-page-controls)
+- [Diagnostics Screen](#diagnostics-screen)
 - [Hardware Wiring](#hardware-wiring)
 - [Brightness Controls](#brightness-controls)
 - [Idle Timeout (Display + Backlight)](#idle-timeout-display--backlight)
@@ -120,6 +121,24 @@ bindings = <
   &pdp PDP_DIAGNOSTICS  /* switch directly to the diagnostics page */
 >;
 ```
+
+The CST816S touch screen can also switch pages with swipe gestures. Swipe right from the status
+screen to show diagnostics. Swipe left from diagnostics to return to the status screen.
+
+## Diagnostics Screen
+
+The diagnostics screen is a compact runtime dashboard for the Prospector dongle. It is shown as a
+display overlay, so the normal ZMK status screen remains the primary display page.
+
+| Section | Description |
+| --- | --- |
+| `KEYS PRESSED` | Session key counter based on ZMK keycode press events. The value is capped internally and displayed compactly, for example `9999`, `12.3k`, `123k`, `1.2M`, or `999M+`. It resets on reboot. |
+| `BRIGHT` | Current Prospector backlight brightness. `A 80%` means ambient-light auto mode; `M 80%` means manual or fixed mode. |
+| `ALS` | Last cached ambient light reading from the APDS9960 brightness sampler, shown in lux. Non-ALS builds, or builds with no valid sample yet, show `N/A`. |
+| `MEM` | LVGL/Zephyr display heap usage as `used/free` KiB, for example `12/20k`. This is the runtime pool used by the diagnostics overlay and status screen. |
+| `PERIPHERALS` | Placeholder area for future split peripheral diagnostics such as RSSI and connection interval. |
+| `FIRMWARE` | ZMK application version from Zephyr's generated `APP_VERSION_STRING`, shown as `zmk <version>`. |
+| `UPTIME` | Time since boot, capped to a fixed-width `999d 23h 59m` format. |
 
 ## Hardware Wiring
 

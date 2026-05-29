@@ -8,9 +8,12 @@
 #include <zephyr/app_version.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
+#include <zephyr/sys/mem_stats.h>
 #include <zmk/display.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/keycode_state_changed.h>
+
+#include <lvgl_mem.h>
 
 #include <prospector/brightness.h>
 
@@ -32,6 +35,7 @@ static lv_obj_t *uptime_value;
 static lv_obj_t *brightness_value;
 static lv_obj_t *ambient_light_value;
 static lv_obj_t *key_count_value;
+static lv_obj_t *memory_value;
 static atomic_t diagnostics_visible;
 static atomic_t key_press_count;
 
@@ -205,6 +209,27 @@ static void update_ambient_light_label(void) {
     lv_label_set_text(ambient_light_value, ambient_text);
 }
 
+static void update_memory_label(void) {
+    static char memory_text[16];
+    struct sys_memory_stats stats;
+    uint32_t used_kib;
+    uint32_t free_kib;
+
+    if (memory_value == NULL) {
+        return;
+    }
+
+#if defined(CONFIG_SYS_HEAP_RUNTIME_STATS) && defined(CONFIG_LV_Z_MEM_POOL_SYS_HEAP)
+    lvgl_heap_stats(&stats);
+    used_kib = stats.allocated_bytes / 1024U;
+    free_kib = stats.free_bytes / 1024U;
+    snprintk(memory_text, sizeof(memory_text), "%u/%uk", used_kib, free_kib);
+    lv_label_set_text(memory_value, memory_text);
+#else
+    lv_label_set_text(memory_value, "N/A");
+#endif
+}
+
 static void update_uptime_label(void) {
     static char uptime_text[16];
     uint64_t uptime_minutes = k_uptime_get() / 60000U;
@@ -245,6 +270,7 @@ static void diagnostics_update_work_handler(struct k_work *work) {
     update_key_count_label();
     update_brightness_label();
     update_ambient_light_label();
+    update_memory_label();
     k_work_schedule(&diagnostics_tick_work, K_SECONDS(1));
 }
 
@@ -275,7 +301,7 @@ lv_obj_t *prospector_diagnostics_page_create(lv_obj_t *parent) {
         create_metric_panel(page, 190, 34, 76, "BRIGHT", "--", lv_color_hex(0xffd84a));
     ambient_light_value =
         create_metric_panel(page, 190, 80, 76, "ALS", "N/A", lv_color_hex(0xb88cff));
-    create_metric_panel(page, 190, 126, 76, "MEM", "--/--", lv_color_hex(0x70e8f0));
+    memory_value = create_metric_panel(page, 190, 126, 76, "MEM", "N/A", lv_color_hex(0x70e8f0));
 
     lv_obj_t *ble_panel = create_panel(page, 7, 84, 176, 86);
     create_label(ble_panel, "PERIPHERALS", 8, 6, lv_color_hex(0xffffff));
@@ -291,6 +317,7 @@ lv_obj_t *prospector_diagnostics_page_create(lv_obj_t *parent) {
     update_key_count_label();
     update_brightness_label();
     update_ambient_light_label();
+    update_memory_label();
 
     lv_obj_add_flag(page, LV_OBJ_FLAG_HIDDEN);
 
@@ -305,6 +332,7 @@ void prospector_diagnostics_page_set_visible(bool visible) {
         update_key_count_label();
         update_brightness_label();
         update_ambient_light_label();
+        update_memory_label();
         k_work_schedule(&diagnostics_tick_work, K_SECONDS(1));
     } else {
         k_work_cancel_delayable(&diagnostics_tick_work);
