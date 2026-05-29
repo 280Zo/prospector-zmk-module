@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include <zephyr/app_version.h>
 #include <zephyr/kernel.h>
 #include <zephyr/sys/atomic.h>
 #include <zmk/display.h>
@@ -13,6 +14,12 @@
 #define DIAGNOSTICS_FONT (&lv_font_montserrat_14)
 #else
 #define DIAGNOSTICS_FONT LV_FONT_DEFAULT
+#endif
+
+#if defined(APP_VERSION_STRING)
+#define FIRMWARE_VERSION_STRING APP_VERSION_STRING
+#else
+#define FIRMWARE_VERSION_STRING "--"
 #endif
 
 static lv_obj_t *uptime_value;
@@ -95,6 +102,13 @@ static void create_ble_row(lv_obj_t *parent, int y, const char *side, const char
     create_label(parent, interval, 136, y, lv_color_hex(0xffffff));
 }
 
+static lv_obj_t *create_firmware_version_label(lv_obj_t *parent, int x, int y) {
+    static char firmware_text[16];
+
+    snprintk(firmware_text, sizeof(firmware_text), "zmk %s", FIRMWARE_VERSION_STRING);
+    return create_label(parent, firmware_text, x, y, lv_color_hex(0x90ee7e));
+}
+
 static void update_uptime_label(void) {
     static char uptime_text[16];
     uint64_t uptime_minutes = k_uptime_get() / 60000U;
@@ -170,7 +184,7 @@ lv_obj_t *prospector_diagnostics_page_create(lv_obj_t *parent) {
     lv_obj_t *fw_panel = create_panel(page, 7, 175, 260, 38);
     create_label(fw_panel, "FIRMWARE", 8, 6, lv_color_hex(0x8a949c));
     create_right_label(fw_panel, "UPTIME", 6, lv_color_hex(0x8a949c));
-    create_label(fw_panel, "zmk --", 8, 20, lv_color_hex(0x90ee7e));
+    create_firmware_version_label(fw_panel, 8, 20);
     uptime_value = create_right_label(fw_panel, "0d 00h 00m", 20, lv_color_hex(0x90ee7e));
     update_uptime_label();
 
