@@ -1,13 +1,6 @@
 / {
    chosen {
       zephyr,display = &st7789;
-      zephyr,touch = &cst816s;
-   };
-
-   lvgl_pointer {
-      compatible = "zephyr,lvgl-pointer-input";
-      input = <&cst816s>;
-      swap-xy;
    };
 
    behaviors {

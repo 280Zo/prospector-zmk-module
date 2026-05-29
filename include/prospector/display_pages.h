@@ -7,3 +7,4 @@
 int prospector_display_page_set(uint8_t page);
 int prospector_display_page_next(void);
 int prospector_display_page_prev(void);
+int prospector_display_page_toggle(void);

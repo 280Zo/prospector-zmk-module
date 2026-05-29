@@ -57,7 +57,6 @@ static void handle_touch_release(void) {
         return;
     }
 
-    int32_t dx = last_x - start_x;
     int32_t dy = last_y - start_y;
     int64_t duration = k_uptime_get() - start_time;
     int32_t abs_dy = abs(dy);
@@ -79,7 +78,7 @@ static void handle_touch_release(void) {
         return;
     }
 
-    LOG_DBG("Prospector touch swipe: detected %s", page_delta < 0 ? "NEXT" : "PREV");
+    LOG_INF("Prospector touch swipe: %s", page_delta < 0 ? "next" : "prev");
     queue_swipe_action(page_delta < 0 ? SWIPE_ACTION_NEXT : SWIPE_ACTION_PREV);
 }
 
