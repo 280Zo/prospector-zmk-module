@@ -132,11 +132,11 @@ display overlay, so the normal ZMK status screen remains the primary display pag
 
 | Section | Description |
 | --- | --- |
-| `KEYS PRESSED` | Session key counter based on ZMK keycode press events. The value is capped internally and displayed compactly, for example `9999`, `12.3k`, `123k`, `1.2M`, or `999M+`. It resets on reboot. |
+| `KEYS PRESSED` | Session key counter based on ZMK keycode press events. The value is capped internally and displayed compactly, for example `9999`, `12.3k`, `123k`, `1.2M`, or `999M+`. The small balance marker moves left for P1 key events, right for P2 key events, and slowly settles back to center. It resets on reboot. |
 | `BRIGHT` | Current Prospector backlight brightness. `A 80%` means ambient-light auto mode; `M 80%` means manual or fixed mode. |
 | `ALS` | Last cached ambient light reading from the APDS9960 brightness sampler, shown in lux. Non-ALS builds, or builds with no valid sample yet, show `N/A`. |
 | `MEM` | LVGL/Zephyr display heap usage as `used/free` KiB, for example `12/20k`. This is the runtime pool used by the diagnostics overlay and status screen. |
-| `PERIPHERALS` | Placeholder area for future split peripheral diagnostics such as RSSI and connection interval. |
+| `PERIPHERALS` | Split peripheral rows. Each row shows RSSI in dB and measured central-side key processing latency in milliseconds. The latency value starts when the central receives a split position event, so it does not include switch debounce or BLE airtime before receipt. |
 | `FIRMWARE` | ZMK application version from Zephyr's generated `APP_VERSION_STRING`, shown as `zmk <version>`. |
 | `UPTIME` | Time since boot, capped to a fixed-width `999d 23h 59m` format. |
 
@@ -240,8 +240,8 @@ When activity returns:
 Set the timeout in your dongle `.conf` file (value is in milliseconds):
 
 ```ini
-# 60 seconds of inactivity before IDLE
-CONFIG_ZMK_IDLE_TIMEOUT=60000
+# 5 minutes of inactivity before IDLE
+CONFIG_ZMK_IDLE_TIMEOUT=300000
 CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE=y
 ```
 
@@ -263,7 +263,7 @@ CONFIG_PROSPECTOR_FIXED_BRIGHTNESS=80
 | `CONFIG_PROSPECTOR_FIXED_BRIGHTNESS` | Fixed display brightness when not using ambient light sensor | 50 (1-100) |
 | `CONFIG_PROSPECTOR_BRIGHTNESS_STEP` | Brightness percentage-point step for `&pbl PBL_INC` / `&pbl PBL_DEC` | 10 |
 | `CONFIG_PROSPECTOR_LAYER_NAME_UPPERCASE` | Convert layer names to uppercase (Operator and Radii only) | y |
-| `CONFIG_ZMK_IDLE_TIMEOUT` | Inactivity time before ZMK enters `IDLE` (backlight turns off; display blanking also requires `CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE`) | ZMK default |
+| `CONFIG_ZMK_IDLE_TIMEOUT` | Inactivity time before ZMK enters `IDLE` (backlight turns off; display blanking also requires `CONFIG_ZMK_DISPLAY_BLANK_ON_IDLE`) | 300000 |
 
 > [!NOTE]
 > Prospector display backlight is forced to `0` when ZMK enters `IDLE` or `SLEEP`, and restored when activity returns to `ACTIVE`.
