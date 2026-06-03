@@ -6,6 +6,7 @@
 #include <prospector/display_pages.h>
 
 #include "diagnostics_page.h"
+#include "avatar_page.h"
 
 LOG_MODULE_REGISTER(prospector_display_pages, LOG_LEVEL_INF);
 
@@ -28,11 +29,13 @@ LOG_MODULE_REGISTER(prospector_display_pages, LOG_LEVEL_INF);
 enum prospector_display_page {
     PROSPECTOR_DISPLAY_PAGE_STATUS,
     PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS,
+    PROSPECTOR_DISPLAY_PAGE_AVATAR,
     PROSPECTOR_DISPLAY_PAGE_COUNT,
 };
 
 static lv_obj_t *status_page;
 static lv_obj_t *diagnostics_page;
+static lv_obj_t *avatar_page;
 static uint8_t active_page;
 static uint8_t requested_page;
 
@@ -49,15 +52,26 @@ static void apply_requested_page(void) {
 
     uint8_t page = requested_page % PROSPECTOR_DISPLAY_PAGE_COUNT;
 
-    if (page == PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS) {
-        if (diagnostics_page != NULL) {
+    if (diagnostics_page != NULL) {
+        if (page == PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS) {
             lv_obj_clear_flag(diagnostics_page, LV_OBJ_FLAG_HIDDEN);
             lv_obj_move_foreground(diagnostics_page);
             prospector_diagnostics_page_set_visible(true);
+        } else {
+            lv_obj_add_flag(diagnostics_page, LV_OBJ_FLAG_HIDDEN);
+            prospector_diagnostics_page_set_visible(false);
         }
-    } else if (diagnostics_page != NULL) {
-        lv_obj_add_flag(diagnostics_page, LV_OBJ_FLAG_HIDDEN);
-        prospector_diagnostics_page_set_visible(false);
+    }
+
+    if (avatar_page != NULL) {
+        if (page == PROSPECTOR_DISPLAY_PAGE_AVATAR) {
+            lv_obj_clear_flag(avatar_page, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_move_foreground(avatar_page);
+            prospector_avatar_page_set_visible(true);
+        } else {
+            lv_obj_add_flag(avatar_page, LV_OBJ_FLAG_HIDDEN);
+            prospector_avatar_page_set_visible(false);
+        }
     }
 
     active_page = page;
@@ -79,19 +93,25 @@ static int schedule_page_switch(uint8_t page) {
 int prospector_display_page_set(uint8_t page) { return schedule_page_switch(page); }
 
 int prospector_display_page_next(void) {
-    if (active_page >= PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS) {
+    switch (active_page) {
+    case PROSPECTOR_DISPLAY_PAGE_STATUS:
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS);
+    case PROSPECTOR_DISPLAY_PAGE_AVATAR:
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+    default:
         return 0;
     }
-
-    return schedule_page_switch(active_page + 1);
 }
 
 int prospector_display_page_prev(void) {
-    if (active_page == PROSPECTOR_DISPLAY_PAGE_STATUS) {
+    switch (active_page) {
+    case PROSPECTOR_DISPLAY_PAGE_STATUS:
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+    case PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS:
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+    default:
         return 0;
     }
-
-    return schedule_page_switch(active_page - 1);
 }
 
 int prospector_display_page_toggle(void) {
@@ -102,10 +122,13 @@ int prospector_display_page_toggle(void) {
     return schedule_page_switch(next_page);
 }
 
+void prospector_display_page_note_swipe(void) { prospector_avatar_page_note_swipe(); }
+
 lv_obj_t *zmk_display_status_screen() {
     status_page = prospector_theme_status_screen();
     lv_obj_clear_flag(status_page, LV_OBJ_FLAG_SCROLLABLE);
     diagnostics_page = prospector_diagnostics_page_create(lv_layer_top());
+    avatar_page = prospector_avatar_page_create(lv_layer_top());
 
     requested_page = PROSPECTOR_DISPLAY_PAGE_STATUS;
     active_page = PROSPECTOR_DISPLAY_PAGE_STATUS;

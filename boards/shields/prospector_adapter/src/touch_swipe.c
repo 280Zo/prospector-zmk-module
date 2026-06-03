@@ -39,8 +39,10 @@ static void swipe_work_handler(struct k_work *work) {
     pending_action = SWIPE_ACTION_NONE;
 
     if (action == SWIPE_ACTION_NEXT) {
+        prospector_display_page_note_swipe();
         prospector_display_page_next();
     } else if (action == SWIPE_ACTION_PREV) {
+        prospector_display_page_note_swipe();
         prospector_display_page_prev();
     }
 }

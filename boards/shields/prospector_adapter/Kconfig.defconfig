@@ -6,6 +6,9 @@ config ZMK_SPLIT_BLE_CENTRAL_BATTERY_LEVEL_FETCHING
 config ZMK_DISPLAY
    default y
 
+config ZMK_WPM
+    default y
+
 choice ZMK_DISPLAY_STATUS_SCREEN
     default ZMK_DISPLAY_STATUS_SCREEN_CUSTOM
 endchoice

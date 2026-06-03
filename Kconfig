@@ -28,6 +28,23 @@ config PROSPECTOR_ROTATE_DISPLAY_180
     bool "Rotate the display 180 degrees"
     default n
 
+config PROSPECTOR_AVATAR_USE_IMAGE
+    bool "Use bitmap image for the avatar page"
+    default n
+    select LV_USE_IMAGE
+    help
+      When enabled, the avatar page uses the WASD knight bitmap asset.
+      When disabled, the page uses a lightweight primitive fallback.
+
+config PROSPECTOR_AVATAR_USE_PIXEL_ART
+    bool "Use generated indexed pixel art for the avatar page"
+    default y
+    depends on !PROSPECTOR_AVATAR_USE_IMAGE
+    help
+      When enabled, the avatar page draws generated WASD knight pixel art
+      from a compact 4-bit indexed asset through a custom LVGL draw
+      callback. This is experimental.
+
 config PROSPECTOR_SHOW_MODIFIERS
     bool "Display modifier key indicators (Cmd, Opt, Ctrl, Shift)"
     default y
