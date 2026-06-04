@@ -29,6 +29,11 @@ static const struct behavior_parameter_value_metadata page_values[] = {
         .value = PDP_DIAGNOSTICS_CMD,
     },
     {
+        .display_name = "Keyboard Knight Page",
+        .type = BEHAVIOR_PARAMETER_VALUE_TYPE_VALUE,
+        .value = PDP_AVATAR_CMD,
+    },
+    {
         .display_name = "Next Page",
         .type = BEHAVIOR_PARAMETER_VALUE_TYPE_VALUE,
         .value = PDP_NEXT_CMD,
@@ -59,6 +64,7 @@ static int on_keymap_binding_pressed(struct zmk_behavior_binding *binding,
     switch (binding->param1) {
     case PDP_STATUS_CMD:
     case PDP_DIAGNOSTICS_CMD:
+    case PDP_AVATAR_CMD:
         return prospector_display_page_set(binding->param1);
     case PDP_NEXT_CMD:
         return prospector_display_page_next();

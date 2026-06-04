@@ -28,22 +28,39 @@ config PROSPECTOR_ROTATE_DISPLAY_180
     bool "Rotate the display 180 degrees"
     default n
 
-config PROSPECTOR_AVATAR_USE_IMAGE
-    bool "Use bitmap image for the avatar page"
+config PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE
+    bool "Enable Prospector diagnostics display page"
     default n
-    select LV_USE_IMAGE
     help
-      When enabled, the avatar page uses the WASD knight bitmap asset.
-      When disabled, the page uses a lightweight primitive fallback.
+      Enable the swipe/key-selectable diagnostics display page.
+
+config PROSPECTOR_ENABLE_AVATAR_PAGE
+    bool "Enable Keyboard Knight avatar display page"
+    default n
+    help
+      Enable the swipe/key-selectable Keyboard Knight avatar page.
+
+config PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT
+    bool "Show Keyboard Knight avatar art"
+    default y
+    depends on PROSPECTOR_ENABLE_AVATAR_PAGE
+    help
+      Show the Keyboard Knight on the avatar page. Disable this to keep the
+      avatar page and extras available without linking the Keyboard Knight art.
 
 config PROSPECTOR_AVATAR_USE_PIXEL_ART
     bool "Use generated indexed pixel art for the avatar page"
     default y
-    depends on !PROSPECTOR_AVATAR_USE_IMAGE
+    depends on PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT
     help
       When enabled, the avatar page draws generated WASD knight pixel art
       from a compact 4-bit indexed asset through a custom LVGL draw
-      callback. This is experimental.
+      callback. When disabled, the page uses a lightweight primitive fallback.
+
+config PROSPECTOR_ENABLE_AVATAR_EXTRA
+    bool "Enable Keyboard Knight extra"
+    default n
+    depends on PROSPECTOR_ENABLE_AVATAR_PAGE
 
 config PROSPECTOR_SHOW_MODIFIERS
     bool "Display modifier key indicators (Cmd, Opt, Ctrl, Shift)"

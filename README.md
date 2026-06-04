@@ -15,6 +15,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 - [Usage](#usage)
 - [Display Page Controls](#display-page-controls)
 - [Diagnostics Screen](#diagnostics-screen)
+- [Keyboard Knight](#keyboard-knight)
 - [Hardware Wiring](#hardware-wiring)
 - [Brightness Controls](#brightness-controls)
 - [Idle Timeout (Display + Backlight)](#idle-timeout-display--backlight)
@@ -32,6 +33,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 - BLE profile and output indicator
 - Active modifier display
 - Caps word indicator
+- Optional diagnostics and Keyboard Knight display pages
 
 ## Installation
 
@@ -119,11 +121,14 @@ bindings = <
   &pdp PDP_PREV         /* switch to the previous display page */
   &pdp PDP_STATUS       /* switch directly to the theme status page */
   &pdp PDP_DIAGNOSTICS  /* switch directly to the diagnostics page */
+  &pdp PDP_AVATAR       /* switch directly to Keyboard Knight */
 >;
 ```
 
 The CST816S touch screen can also switch pages with swipe gestures. Swipe right from the status
-screen to show diagnostics. Swipe left from diagnostics to return to the status screen.
+screen to show diagnostics. Swipe left from diagnostics to return to the status screen. Swipe left
+from the status screen to show Keyboard Knight, and swipe right from Keyboard Knight to return to
+the status screen.
 
 ## Diagnostics Screen
 
@@ -139,6 +144,36 @@ display overlay, so the normal ZMK status screen remains the primary display pag
 | `PERIPHERALS` | Split peripheral rows. Each row shows RSSI in dB and measured central-side key processing latency in milliseconds. The latency value starts when the central receives a split position event, so it does not include switch debounce or BLE airtime before receipt. |
 | `FIRMWARE` | ZMK application version from Zephyr's generated `APP_VERSION_STRING`, shown as `zmk <version>`. |
 | `UPTIME` | Time since boot, capped to a fixed-width `999d 23h 59m` format. |
+
+## Keyboard Knight
+
+Keyboard Knight is an optional animated avatar page for Prospector display builds.
+
+![Keyboard Knight charge animation source sheet](docs/images/avatar-knight-charge-sheet.png)
+
+The knight uses a compact indexed pixel-art renderer rather than a raw LVGL image descriptor. It
+sleeps at `0 wpm`, idles in guard stance while typing normally, and charges when WPM is high. The
+page avoids animation work while hidden.
+
+Enable Keyboard Knight in your firmware `.conf` with:
+
+```ini
+CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE=y
+```
+
+Optional hidden extras can be included in the build separately. Enable the avatar page and the
+extras switch together:
+
+```ini
+CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE=y
+CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA=y
+```
+
+The diagnostics page can be enabled independently:
+
+```ini
+CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE=y
+```
 
 ## Hardware Wiring
 

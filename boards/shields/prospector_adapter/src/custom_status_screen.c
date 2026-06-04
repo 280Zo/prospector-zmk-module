@@ -1,12 +1,17 @@
 #include <lvgl.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/util.h>
 #include <zmk/display.h>
 
 #include <prospector/display_pages.h>
 
+#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
 #include "diagnostics_page.h"
+#endif
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
 #include "avatar_page.h"
+#endif
 
 LOG_MODULE_REGISTER(prospector_display_pages, LOG_LEVEL_INF);
 
@@ -34,10 +39,19 @@ enum prospector_display_page {
 };
 
 static lv_obj_t *status_page;
+#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
 static lv_obj_t *diagnostics_page;
+#endif
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
 static lv_obj_t *avatar_page;
+#endif
 static uint8_t active_page;
 static uint8_t requested_page;
+
+#define PROSPECTOR_AVATAR_OVERLAY_ONLY \
+    (IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE) && \
+     IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA) && \
+     !IS_ENABLED(CONFIG_PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT))
 
 static void apply_requested_page(void);
 
@@ -52,6 +66,15 @@ static void apply_requested_page(void) {
 
     uint8_t page = requested_page % PROSPECTOR_DISPLAY_PAGE_COUNT;
 
+    if (page == PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS &&
+        !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {
+        page = PROSPECTOR_DISPLAY_PAGE_STATUS;
+    } else if (page == PROSPECTOR_DISPLAY_PAGE_AVATAR &&
+               !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)) {
+        page = PROSPECTOR_DISPLAY_PAGE_STATUS;
+    }
+
+#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
     if (diagnostics_page != NULL) {
         if (page == PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS) {
             lv_obj_clear_flag(diagnostics_page, LV_OBJ_FLAG_HIDDEN);
@@ -62,9 +85,11 @@ static void apply_requested_page(void) {
             prospector_diagnostics_page_set_visible(false);
         }
     }
+#endif
 
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
     if (avatar_page != NULL) {
-        if (page == PROSPECTOR_DISPLAY_PAGE_AVATAR) {
+        if (PROSPECTOR_AVATAR_OVERLAY_ONLY || page == PROSPECTOR_DISPLAY_PAGE_AVATAR) {
             lv_obj_clear_flag(avatar_page, LV_OBJ_FLAG_HIDDEN);
             lv_obj_move_foreground(avatar_page);
             prospector_avatar_page_set_visible(true);
@@ -73,6 +98,7 @@ static void apply_requested_page(void) {
             prospector_avatar_page_set_visible(false);
         }
     }
+#endif
 
     active_page = page;
     LOG_INF("Prospector page applied: %u", active_page);
@@ -93,9 +119,19 @@ static int schedule_page_switch(uint8_t page) {
 int prospector_display_page_set(uint8_t page) { return schedule_page_switch(page); }
 
 int prospector_display_page_next(void) {
+    if (PROSPECTOR_AVATAR_OVERLAY_ONLY && !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {
+        return 0;
+    }
+
     switch (active_page) {
     case PROSPECTOR_DISPLAY_PAGE_STATUS:
+#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
         return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS);
+#elif defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+#else
+        return 0;
+#endif
     case PROSPECTOR_DISPLAY_PAGE_AVATAR:
         return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
     default:
@@ -104,9 +140,19 @@ int prospector_display_page_next(void) {
 }
 
 int prospector_display_page_prev(void) {
+    if (PROSPECTOR_AVATAR_OVERLAY_ONLY && !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {
+        return 0;
+    }
+
     switch (active_page) {
     case PROSPECTOR_DISPLAY_PAGE_STATUS:
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
         return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+#elif defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS);
+#else
+        return 0;
+#endif
     case PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS:
         return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
     default:
@@ -115,20 +161,42 @@ int prospector_display_page_prev(void) {
 }
 
 int prospector_display_page_toggle(void) {
+    if (PROSPECTOR_AVATAR_OVERLAY_ONLY && !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+    }
+
+#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
     uint8_t next_page = active_page == PROSPECTOR_DISPLAY_PAGE_STATUS
                             ? PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS
                             : PROSPECTOR_DISPLAY_PAGE_STATUS;
 
     return schedule_page_switch(next_page);
+#elif defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
+    uint8_t next_page = active_page == PROSPECTOR_DISPLAY_PAGE_STATUS
+                            ? PROSPECTOR_DISPLAY_PAGE_AVATAR
+                            : PROSPECTOR_DISPLAY_PAGE_STATUS;
+
+    return schedule_page_switch(next_page);
+#else
+    return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+#endif
 }
 
-void prospector_display_page_note_swipe(void) { prospector_avatar_page_note_swipe(); }
+void prospector_display_page_note_swipe(void) {
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
+    prospector_avatar_page_note_swipe();
+#endif
+}
 
 lv_obj_t *zmk_display_status_screen() {
     status_page = prospector_theme_status_screen();
     lv_obj_clear_flag(status_page, LV_OBJ_FLAG_SCROLLABLE);
+#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
     diagnostics_page = prospector_diagnostics_page_create(lv_layer_top());
+#endif
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
     avatar_page = prospector_avatar_page_create(lv_layer_top());
+#endif
 
     requested_page = PROSPECTOR_DISPLAY_PAGE_STATUS;
     active_page = PROSPECTOR_DISPLAY_PAGE_STATUS;
