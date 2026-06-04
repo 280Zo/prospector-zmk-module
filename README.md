@@ -16,6 +16,7 @@ This is a [ZMK module](https://zmk.dev/docs/features/modules) that provides cust
 - [Display Page Controls](#display-page-controls)
 - [Diagnostics Screen](#diagnostics-screen)
 - [Keyboard Knight](#keyboard-knight)
+- [Hidden Extra](#hidden-extra)
 - [Hardware Wiring](#hardware-wiring)
 - [Brightness Controls](#brightness-controls)
 - [Idle Timeout (Display + Backlight)](#idle-timeout-display--backlight)
@@ -135,6 +136,12 @@ the status screen.
 The diagnostics screen is a compact runtime dashboard for the Prospector dongle. It is shown as a
 display overlay, so the normal ZMK status screen remains the primary display page.
 
+Enable the diagnostics page in your firmware `.conf` with:
+
+```ini
+CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE=y
+```
+
 | Section | Description |
 | --- | --- |
 | `KEYS PRESSED` | Session key counter based on ZMK keycode press events. The value is capped internally and displayed compactly, for example `9999`, `12.3k`, `123k`, `1.2M`, or `999M+`. The small balance marker moves left for P1 key events, right for P2 key events, and slowly settles back to center. It resets on reboot. |
@@ -152,8 +159,8 @@ Keyboard Knight is an optional animated avatar page for Prospector display build
 ![Keyboard Knight charge animation source sheet](docs/images/avatar-knight-charge-sheet.png)
 
 The knight uses a compact indexed pixel-art renderer rather than a raw LVGL image descriptor. It
-sleeps at `0 wpm`, idles in guard stance while typing normally, and charges when WPM is high. The
-page avoids animation work while hidden.
+sleeps at `0 wpm`, idles in guard stance while typing normally, and charges at `60 wpm` and above.
+The page avoids animation work while hidden.
 
 Enable Keyboard Knight in your firmware `.conf` with:
 
@@ -161,18 +168,12 @@ Enable Keyboard Knight in your firmware `.conf` with:
 CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE=y
 ```
 
-Optional hidden extras can be included in the build separately. Enable the avatar page and the
-extras switch together:
+## Hidden Extra
+
+Enable the optional hidden extra in your firmware `.conf` with:
 
 ```ini
-CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE=y
-CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA=y
-```
-
-The diagnostics page can be enabled independently:
-
-```ini
-CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE=y
+CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA=y
 ```
 
 ## Hardware Wiring

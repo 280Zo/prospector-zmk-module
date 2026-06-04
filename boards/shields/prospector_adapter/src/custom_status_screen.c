@@ -50,7 +50,7 @@ static uint8_t requested_page;
 
 #define PROSPECTOR_AVATAR_OVERLAY_ONLY \
     (IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE) && \
-     IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA) && \
+     IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA) && \
      !IS_ENABLED(CONFIG_PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT))
 
 static void apply_requested_page(void);
@@ -76,26 +76,42 @@ static void apply_requested_page(void) {
 
 #if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
     if (diagnostics_page != NULL) {
-        if (page == PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS) {
+        lv_obj_add_flag(diagnostics_page, LV_OBJ_FLAG_HIDDEN);
+        prospector_diagnostics_page_set_visible(false);
+    }
+
+    if (page == PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS) {
+        if (diagnostics_page == NULL) {
+            diagnostics_page = prospector_diagnostics_page_create(lv_layer_top());
+        }
+
+        if (diagnostics_page != NULL) {
             lv_obj_clear_flag(diagnostics_page, LV_OBJ_FLAG_HIDDEN);
             lv_obj_move_foreground(diagnostics_page);
             prospector_diagnostics_page_set_visible(true);
         } else {
-            lv_obj_add_flag(diagnostics_page, LV_OBJ_FLAG_HIDDEN);
-            prospector_diagnostics_page_set_visible(false);
+            page = PROSPECTOR_DISPLAY_PAGE_STATUS;
         }
     }
 #endif
 
 #if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
     if (avatar_page != NULL) {
-        if (PROSPECTOR_AVATAR_OVERLAY_ONLY || page == PROSPECTOR_DISPLAY_PAGE_AVATAR) {
+        lv_obj_add_flag(avatar_page, LV_OBJ_FLAG_HIDDEN);
+        prospector_avatar_page_set_visible(false);
+    }
+
+    if (PROSPECTOR_AVATAR_OVERLAY_ONLY || page == PROSPECTOR_DISPLAY_PAGE_AVATAR) {
+        if (avatar_page == NULL) {
+            avatar_page = prospector_avatar_page_create(lv_layer_top());
+        }
+
+        if (avatar_page != NULL) {
             lv_obj_clear_flag(avatar_page, LV_OBJ_FLAG_HIDDEN);
             lv_obj_move_foreground(avatar_page);
             prospector_avatar_page_set_visible(true);
         } else {
-            lv_obj_add_flag(avatar_page, LV_OBJ_FLAG_HIDDEN);
-            prospector_avatar_page_set_visible(false);
+            page = PROSPECTOR_DISPLAY_PAGE_STATUS;
         }
     }
 #endif
@@ -132,6 +148,12 @@ int prospector_display_page_next(void) {
 #else
         return 0;
 #endif
+    case PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS:
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+#else
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+#endif
     case PROSPECTOR_DISPLAY_PAGE_AVATAR:
         return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
     default:
@@ -155,6 +177,12 @@ int prospector_display_page_prev(void) {
 #endif
     case PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS:
         return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+    case PROSPECTOR_DISPLAY_PAGE_AVATAR:
+#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS);
+#else
+        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+#endif
     default:
         return 0;
     }
@@ -182,21 +210,20 @@ int prospector_display_page_toggle(void) {
 #endif
 }
 
-void prospector_display_page_note_swipe(void) {
+bool prospector_display_page_note_swipe(void) {
 #if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
-    prospector_avatar_page_note_swipe();
+    if (prospector_avatar_page_note_swipe()) {
+        schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+        return true;
+    }
 #endif
+
+    return false;
 }
 
 lv_obj_t *zmk_display_status_screen() {
     status_page = prospector_theme_status_screen();
     lv_obj_clear_flag(status_page, LV_OBJ_FLAG_SCROLLABLE);
-#if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
-    diagnostics_page = prospector_diagnostics_page_create(lv_layer_top());
-#endif
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
-    avatar_page = prospector_avatar_page_create(lv_layer_top());
-#endif
 
     requested_page = PROSPECTOR_DISPLAY_PAGE_STATUS;
     active_page = PROSPECTOR_DISPLAY_PAGE_STATUS;

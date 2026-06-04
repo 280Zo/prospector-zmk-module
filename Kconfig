@@ -57,8 +57,8 @@ config PROSPECTOR_AVATAR_USE_PIXEL_ART
       from a compact 4-bit indexed asset through a custom LVGL draw
       callback. When disabled, the page uses a lightweight primitive fallback.
 
-config PROSPECTOR_ENABLE_AVATAR_EXTRA
-    bool "Enable Keyboard Knight extra"
+config PROSPECTOR_ENABLE_HIDDEN_EXTRA
+    bool "Enable hidden extra"
     default n
     depends on PROSPECTOR_ENABLE_AVATAR_PAGE
 

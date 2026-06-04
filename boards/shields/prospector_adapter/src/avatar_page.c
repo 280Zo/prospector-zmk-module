@@ -7,7 +7,7 @@
 #include "images/avatar_pixel_art.h"
 #endif
 
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 #include "images/avatar_extra_pixel_art.h"
 #endif
 
@@ -38,17 +38,17 @@ BUILD_ASSERT(AVATAR_PIXEL_ART_COLOR_COUNT <= 16,
              "avatar pixel art palette must fit packed 4bpp indices");
 #endif
 
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 BUILD_ASSERT(AVATAR_EXTRA_PIXEL_ART_WIDTH * AVATAR_EXTRA_PIXEL_ART_HEIGHT ==
                  AVATAR_EXTRA_PIXEL_ART_FRAME_DATA_SIZE * 2U,
-             "avatar extra pixel art frame size must match packed dimensions");
+             "hidden extra pixel art frame size must match packed dimensions");
 BUILD_ASSERT(AVATAR_EXTRA_PIXEL_ART_DATA_SIZE ==
                  AVATAR_EXTRA_PIXEL_ART_FRAME_DATA_SIZE * AVATAR_EXTRA_PIXEL_ART_FRAME_COUNT,
-             "avatar extra pixel art data size must match frame count");
+             "hidden extra pixel art data size must match frame count");
 BUILD_ASSERT(AVATAR_EXTRA_PIXEL_ART_COLOR_COUNT <= 16,
-             "avatar extra pixel art palette must fit packed 4bpp indices");
+             "hidden extra pixel art palette must fit packed 4bpp indices");
 BUILD_ASSERT(AVATAR_EXTRA_PIXEL_ART_FRAME_COUNT > 1,
-             "avatar extra pixel art must have more than one frame");
+             "hidden extra pixel art must have more than one frame");
 #endif
 
 #if LV_FONT_MONTSERRAT_14
@@ -57,9 +57,9 @@ BUILD_ASSERT(AVATAR_EXTRA_PIXEL_ART_FRAME_COUNT > 1,
 #define AVATAR_FONT LV_FONT_DEFAULT
 #endif
 
-#define AVATAR_FAST_WPM 45
+#define AVATAR_FAST_WPM 60
 #define AVATAR_EXTRA_SWIPES 5
-#define AVATAR_SWIPE_STREAK_MS 2500
+#define AVATAR_SWIPE_STREAK_MS 500
 #define AVATAR_EXTRA_MS 4000
 #define AVATAR_IMAGE_X 52
 #define AVATAR_IMAGE_Y 43
@@ -87,7 +87,7 @@ static lv_obj_t *sleep_bubble_tiny;
 static lv_obj_t *spark_1;
 static lv_obj_t *spark_2;
 static lv_obj_t *spark_3;
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 static lv_obj_t *avatar_extra;
 static lv_obj_t *avatar_extra_text;
 #endif
@@ -96,7 +96,7 @@ static lv_obj_t *avatar_extra_text;
     defined(CONFIG_PROSPECTOR_AVATAR_USE_PIXEL_ART)
 static uint8_t avatar_pixel_art_frame;
 #endif
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 static uint8_t avatar_extra_pixel_art_frame;
 #endif
 
@@ -104,20 +104,20 @@ static atomic_t avatar_visible;
 static atomic_t avatar_wpm;
 static atomic_t avatar_swipe_streak;
 static int64_t last_swipe_at;
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 static int64_t avatar_extra_until;
 #endif
 static uint8_t frame;
 
 static void avatar_tick_work_handler(struct k_work *work);
 static void avatar_render_work_handler(struct k_work *work);
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 static void avatar_swipe_streak_reset_work_handler(struct k_work *work);
 #endif
 
 K_WORK_DELAYABLE_DEFINE(avatar_tick_work, avatar_tick_work_handler);
 K_WORK_DEFINE(avatar_render_work, avatar_render_work_handler);
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 K_WORK_DELAYABLE_DEFINE(avatar_swipe_streak_reset_work, avatar_swipe_streak_reset_work_handler);
 #endif
 
@@ -314,7 +314,7 @@ static lv_obj_t *create_round_bubble(lv_obj_t *parent, int x, int y, int size) {
     return bubble;
 }
 
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 static uint8_t avatar_extra_pixel_art_get_px(uint16_t x, uint16_t y) {
     size_t frame_offset =
         (size_t)avatar_extra_pixel_art_frame * AVATAR_EXTRA_PIXEL_ART_FRAME_DATA_SIZE * 2U;
@@ -395,7 +395,7 @@ static bool ensure_avatar_extra(void) {
 
     avatar_extra_text = lv_label_create(avatar_page_obj);
     if (avatar_extra_text == NULL) {
-        LOG_ERR("Failed to create avatar extra text label");
+        LOG_ERR("Failed to create hidden extra text label");
         return true;
     }
 
@@ -410,7 +410,7 @@ static bool ensure_avatar_extra(void) {
     lv_obj_align(avatar_extra_text, LV_ALIGN_BOTTOM_MID, 0, -22);
     set_hidden(avatar_extra_text, true);
 
-    LOG_INF("Avatar extra object created");
+    LOG_INF("Hidden extra object created");
 
     return true;
 }
@@ -442,7 +442,7 @@ static void update_avatar_extra(bool hidden) {
 #endif
 
 static enum avatar_mood get_avatar_mood(int64_t now, int wpm) {
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
     if (now < avatar_extra_until) {
         return AVATAR_MOOD_EXTRA;
     }
@@ -496,7 +496,7 @@ static void render_avatar(void) {
         }
 #endif
     }
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
     else if (mood == AVATAR_MOOD_EXTRA) {
         status = "extra";
         avatar_extra_pixel_art_frame =
@@ -538,7 +538,7 @@ static void render_avatar(void) {
     set_hidden(spark_1, true);
     set_hidden(spark_2, true);
     set_hidden(spark_3, true);
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
     update_avatar_extra(mood != AVATAR_MOOD_EXTRA);
 #endif
 }
@@ -564,7 +564,7 @@ static void avatar_render_work_handler(struct k_work *work) {
     int wpm = atomic_get(&avatar_wpm);
     int64_t now = k_uptime_get();
     enum avatar_mood mood = get_avatar_mood(now, wpm);
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
     if (mood == AVATAR_MOOD_EXTRA) {
         k_work_schedule(&avatar_tick_work,
                         K_MSEC(now >= avatar_extra_until - AVATAR_EXTRA_LAST_FRAME_MS
@@ -579,7 +579,7 @@ static void avatar_render_work_handler(struct k_work *work) {
     k_work_schedule(&avatar_tick_work, delay);
 }
 
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
 static void avatar_swipe_streak_reset_work_handler(struct k_work *work) {
     ARG_UNUSED(work);
 
@@ -659,7 +659,7 @@ lv_obj_t *prospector_avatar_page_create(lv_obj_t *parent) {
     LOG_INF("Avatar page created; knight=%d pixel_art=%d extra=%d",
             IS_ENABLED(CONFIG_PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT),
             IS_ENABLED(CONFIG_PROSPECTOR_AVATAR_USE_PIXEL_ART),
-            IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA));
+            IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA));
 
     return page;
 }
@@ -677,8 +677,16 @@ void prospector_avatar_page_set_visible(bool visible) {
     }
 }
 
-void prospector_avatar_page_note_swipe(void) {
+bool prospector_avatar_page_note_swipe(void) {
+#if !defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
+    return false;
+#else
     int64_t now = k_uptime_get();
+    bool extra_active = now < avatar_extra_until;
+
+    if (extra_active) {
+        return true;
+    }
 
     if (now - last_swipe_at > AVATAR_SWIPE_STREAK_MS) {
         atomic_set(&avatar_swipe_streak, 1);
@@ -688,12 +696,9 @@ void prospector_avatar_page_note_swipe(void) {
 
     last_swipe_at = now;
 
-#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_EXTRA)
     atomic_val_t swipe_streak = atomic_get(&avatar_swipe_streak);
     if (swipe_streak >= AVATAR_EXTRA_SWIPES) {
-        bool extra_was_active = now < avatar_extra_until;
-
-        if (!extra_was_active) {
+        if (!extra_active) {
             frame = 0;
             avatar_extra_pixel_art_frame = 0;
         }
@@ -701,13 +706,16 @@ void prospector_avatar_page_note_swipe(void) {
         avatar_extra_until = now + AVATAR_EXTRA_MS;
         atomic_set(&avatar_swipe_streak, 0);
         k_work_cancel_delayable(&avatar_swipe_streak_reset_work);
-        LOG_INF("Avatar extra armed after %ld swipes", (long)swipe_streak);
+        extra_active = true;
+        LOG_INF("Hidden extra armed after %ld swipes", (long)swipe_streak);
     } else {
         k_work_reschedule(&avatar_swipe_streak_reset_work, K_MSEC(AVATAR_SWIPE_STREAK_MS));
     }
-#endif
 
     if (atomic_get(&avatar_visible) && zmk_display_is_initialized()) {
         k_work_submit_to_queue(zmk_display_work_q(), &avatar_render_work);
     }
+
+    return extra_active;
+#endif
 }
