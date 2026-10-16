@@ -183,10 +183,14 @@ int prospector_brightness_manual_step(int direction) {
 
     k_mutex_lock(&brightness_update_lock, K_FOREVER);
     k_mutex_lock(&brightness_lock, K_FOREVER);
+    /* Land on multiples of the step (43 -> 45 up, 40 down), so values from Auto
+     * or SET rejoin the grid on the first press. */
+    const int step = CONFIG_PROSPECTOR_BRIGHTNESS_STEP;
+    int current = target_brightness;
     if (direction > 0) {
-        next = MIN(target_brightness + CONFIG_PROSPECTOR_BRIGHTNESS_STEP, PWM_MAX);
+        next = MIN((current / step + 1) * step, PWM_MAX);
     } else {
-        next = MAX(target_brightness - CONFIG_PROSPECTOR_BRIGHTNESS_STEP, PWM_MIN);
+        next = MAX(((current + step - 1) / step - 1) * step, PWM_MIN);
     }
     k_mutex_unlock(&brightness_lock);
 
@@ -253,22 +257,24 @@ bool prospector_brightness_get_ambient_light(int32_t *value) {
 #define BURST_SAMPLE_TIMEOUT 10
 #define BURST_SAMPLE_CONSECUTIVE 3
 
+/* round(1 + 99 * (reading / 100)^0.8): lifts typical indoor readings (19 -> 27%)
+ * while keeping darkness at 1% and bright light at 100%. */
+static const uint8_t light_to_pwm[SENSOR_MAX + 1] = {
+    1,  3,  5,  7,  9,  10, 11, 13, 14, 15, 17, 18, 19, 20,  22, 23, 24, 25, 26, 27, 28,
+    29, 30, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43,  44, 45, 46, 47, 48, 49, 50,
+    50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 61, 62,  63, 64, 65, 66, 67, 68, 69,
+    69, 70, 71, 72, 73, 74, 75, 75, 76, 77, 78, 79, 80, 80,  81, 82, 83, 84, 85, 85, 86,
+    87, 88, 89, 90, 90, 91, 92, 93, 94, 94, 95, 96, 97, 98,  98, 99, 100,
+};
+
 uint8_t map_light_to_pwm(int32_t sensor_reading) {
-    // Handle invalid/error readings
     if (sensor_reading < SENSOR_MIN) {
         return PWM_MIN; // Default to minimum brightness on error
     }
-
-    // Clamp to maximum
     if (sensor_reading > SENSOR_MAX) {
         sensor_reading = SENSOR_MAX;
     }
-
-    // Linear mapping
-    uint8_t pwm_value = (uint8_t)(PWM_MIN + ((PWM_MAX - PWM_MIN) * (sensor_reading - SENSOR_MIN)) /
-                                                (SENSOR_MAX - SENSOR_MIN));
-
-    return pwm_value;
+    return light_to_pwm[sensor_reading];
 }
 
 extern void als_thread(void *d0, void *d1, void *d2) {
