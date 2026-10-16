@@ -1,14 +1,18 @@
 #include "battery_circles.h"
 
-#include <zmk/display.h>
 #include <zmk/battery.h>
 #include <zmk/ble.h>
+#include <zmk/display.h>
+#include <zmk/event_manager.h>
 #include <zmk/events/battery_state_changed.h>
 #include <zmk/events/split_central_status_changed.h>
-#include <zmk/event_manager.h>
 
-#include <fonts.h>
 #include "display_colors.h"
+#include <fonts.h>
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+#include <prospector/power_status.h>
+#include <zmk/events/peripheral_power_state_changed.h>
+#endif
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
@@ -17,8 +21,11 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 #endif
 
 #define LOW_BATTERY_THRESHOLD 20
-#define ARC_WIDTH_CONNECTED 6
-#define ARC_WIDTH_DISCONNECTED 2
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+static lv_obj_t *peripheral_plugs[PERIPHERAL_COUNT];
+#endif
+#define ARC_WIDTH_CONNECTED     6
+#define ARC_WIDTH_DISCONNECTED  2
 #define ARC_WIDTH_ANIM_DURATION 200
 #define ARC_VALUE_ANIM_DURATION 300
 
@@ -52,7 +59,8 @@ static void init_styles(void) {
     }
 
     lv_style_init(&style_arc_ring_disconnected);
-    lv_style_set_arc_color(&style_arc_ring_disconnected, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING));
+    lv_style_set_arc_color(&style_arc_ring_disconnected,
+                           lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING));
 
     lv_style_init(&style_arc_ring_connected);
     lv_style_set_arc_color(&style_arc_ring_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_RING));
@@ -61,7 +69,8 @@ static void init_styles(void) {
     lv_style_set_arc_color(&style_arc_ring_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_RING));
 
     lv_style_init(&style_arc_ind_disconnected);
-    lv_style_set_arc_color(&style_arc_ind_disconnected, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
+    lv_style_set_arc_color(&style_arc_ind_disconnected,
+                           lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
 
     lv_style_init(&style_arc_ind_connected);
     lv_style_set_arc_color(&style_arc_ind_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
@@ -70,7 +79,8 @@ static void init_styles(void) {
     lv_style_set_arc_color(&style_arc_ind_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL));
 
     lv_style_init(&style_label_box_disconnected);
-    lv_style_set_bg_color(&style_label_box_disconnected, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
+    lv_style_set_bg_color(&style_label_box_disconnected,
+                          lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
 
     lv_style_init(&style_label_box_connected);
     lv_style_set_bg_color(&style_label_box_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
@@ -79,16 +89,19 @@ static void init_styles(void) {
     lv_style_set_bg_color(&style_label_box_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL));
 
     lv_style_init(&style_label_disconnected);
-    lv_style_set_text_color(&style_label_disconnected, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_LABEL));
+    lv_style_set_text_color(&style_label_disconnected,
+                            lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_LABEL));
 
     lv_style_init(&style_label_connected);
     lv_style_set_text_color(&style_label_connected, lv_color_hex(0x000000));
 
     lv_style_init(&style_battery_label_disconnected);
-    lv_style_set_text_color(&style_battery_label_disconnected, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
+    lv_style_set_text_color(&style_battery_label_disconnected,
+                            lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
 
     lv_style_init(&style_battery_label_connected);
-    lv_style_set_text_color(&style_battery_label_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
+    lv_style_set_text_color(&style_battery_label_connected,
+                            lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
 
     styles_initialized = true;
 }
@@ -108,10 +121,12 @@ static float cubic_bezier_solve(float x, float x1, float x2) {
     for (int i = 0; i < 8; i++) {
         float x_est = cubic_bezier_x(t, x1, x2);
         float dx = x - x_est;
-        if (dx > -0.001f && dx < 0.001f) break;
+        if (dx > -0.001f && dx < 0.001f)
+            break;
         float mt = 1.0f - t;
         float slope = 3.0f * mt * mt * x1 + 6.0f * mt * t * (x2 - x1) + 3.0f * t * t * (1.0f - x2);
-        if (slope < 0.001f && slope > -0.001f) break;
+        if (slope < 0.001f && slope > -0.001f)
+            break;
         t += dx / slope;
     }
     return t;
@@ -195,22 +210,57 @@ static void update_peripheral_display(uint8_t source) {
 
     bool connected = peripheral_connected[source];
     uint8_t level = peripheral_battery[source];
+    /* Data is kept per slot; widgets are per on-screen position (0 = left). */
+    uint8_t pos = source;
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+    if (PERIPHERAL_COUNT == 2) {
+        pos = prospector_position_for_source(source);
+        if (pos >= PERIPHERAL_COUNT)
+            pos = source;
+    }
+#endif
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+    enum prospector_power_state power = prospector_power_get(source);
+    bool usb = connected && power == PROSPECTOR_POWER_USB;
+    /* BAS is independent. UNKNOWN private status must not erase its estimate
+     * or imply USB absence; diagnostics exposes the missing power channel. */
+    bool battery_known = connected && power != PROSPECTOR_POWER_USB;
+    if (!battery_known)
+        level = 0;
+    lv_obj_t *plug = peripheral_plugs[pos];
+    if (plug) {
+        if (usb)
+            lv_obj_remove_flag(plug, LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_add_flag(plug, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (peripheral_labels[pos] && PERIPHERAL_COUNT == 2) {
+        if (usb)
+            lv_obj_add_flag(peripheral_labels[pos], LV_OBJ_FLAG_HIDDEN);
+        else
+            lv_obj_remove_flag(peripheral_labels[pos], LV_OBJ_FLAG_HIDDEN);
+    }
+#endif
     bool low_battery = connected && level > 0 && level <= LOW_BATTERY_THRESHOLD;
 
-    lv_obj_t *arc = peripheral_arcs[source];
-    lv_obj_t *bar = peripheral_bars[source];
-    lv_obj_t *label_box = peripheral_label_boxes[source];
-    lv_obj_t *label = peripheral_labels[source];
-    lv_obj_t *battery_label = peripheral_battery_labels[source];
+    lv_obj_t *arc = peripheral_arcs[pos];
+    lv_obj_t *bar = peripheral_bars[pos];
+    lv_obj_t *label_box = peripheral_label_boxes[pos];
+    lv_obj_t *label = peripheral_labels[pos];
+    lv_obj_t *battery_label = peripheral_battery_labels[pos];
 
-    lv_style_t *ring_style = low_battery ? &style_arc_ring_low :
-                             (connected ? &style_arc_ring_connected : &style_arc_ring_disconnected);
-    lv_style_t *ind_style = low_battery ? &style_arc_ind_low :
-                            (connected ? &style_arc_ind_connected : &style_arc_ind_disconnected);
-    lv_style_t *box_style = low_battery ? &style_label_box_low :
-                            (connected ? &style_label_box_connected : &style_label_box_disconnected);
+    lv_style_t *ring_style =
+        low_battery ? &style_arc_ring_low
+                    : (connected ? &style_arc_ring_connected : &style_arc_ring_disconnected);
+    lv_style_t *ind_style =
+        low_battery ? &style_arc_ind_low
+                    : (connected ? &style_arc_ind_connected : &style_arc_ind_disconnected);
+    lv_style_t *box_style =
+        low_battery ? &style_label_box_low
+                    : (connected ? &style_label_box_connected : &style_label_box_disconnected);
     lv_style_t *label_style = connected ? &style_label_connected : &style_label_disconnected;
-    lv_style_t *battery_style = connected ? &style_battery_label_connected : &style_battery_label_disconnected;
+    lv_style_t *battery_style =
+        connected ? &style_battery_label_connected : &style_battery_label_disconnected;
 
     if (arc) {
         lv_obj_remove_style(arc, &style_arc_ring_disconnected, LV_PART_MAIN);
@@ -222,23 +272,39 @@ static void update_peripheral_display(uint8_t source) {
         lv_obj_add_style(arc, ring_style, LV_PART_MAIN);
         lv_obj_add_style(arc, ind_style, LV_PART_INDICATOR);
         animate_arc_width(arc, connected ? ARC_WIDTH_CONNECTED : ARC_WIDTH_DISCONNECTED);
-        animate_arc_value(arc, connected ? level : 0);
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+        if (!battery_known) {
+            lv_anim_delete(arc, arc_value_anim_cb);
+            lv_arc_set_value(arc, 0);
+        } else
+#endif
+        {
+            animate_arc_value(arc, connected ? level : 0);
+        }
     }
 
     if (bar) {
         if (low_battery) {
-            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_RING), LV_PART_MAIN);
-            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL), LV_PART_INDICATOR);
+            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_RING),
+                                      LV_PART_MAIN);
+            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL),
+                                      LV_PART_INDICATOR);
         } else if (connected) {
             lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_RING), LV_PART_MAIN);
-            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL), LV_PART_INDICATOR);
+            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL),
+                                      LV_PART_INDICATOR);
         } else {
-            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING), LV_PART_MAIN);
-            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL), LV_PART_INDICATOR);
+            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING),
+                                      LV_PART_MAIN);
+            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL),
+                                      LV_PART_INDICATOR);
         }
         lv_bar_set_value(bar, connected ? level : 0,
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+                         !battery_known ? LV_ANIM_OFF :
+#endif
 #ifdef PROSPECTOR_RENDER_INSTANT_BATTERY
-                         LV_ANIM_OFF
+                                        LV_ANIM_OFF
 #else
                          LV_ANIM_ON
 #endif
@@ -370,8 +436,57 @@ ZMK_DISPLAY_WIDGET_LISTENER(widget_battery_circles_battery, struct battery_updat
 ZMK_SUBSCRIPTION(widget_battery_circles_battery, zmk_peripheral_battery_state_changed);
 
 ZMK_DISPLAY_WIDGET_LISTENER(widget_battery_circles_connection, struct connection_update_state,
-                            battery_circles_connection_update_cb, battery_circles_get_connection_state);
+                            battery_circles_connection_update_cb,
+                            battery_circles_get_connection_state);
 ZMK_SUBSCRIPTION(widget_battery_circles_connection, zmk_split_central_status_changed);
+
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+struct power_update_state {
+    uint8_t source;
+};
+static struct power_update_state battery_circles_get_power_state(const zmk_event_t *eh) {
+    const struct zmk_peripheral_power_state_changed *ev =
+        eh ? as_zmk_peripheral_power_state_changed(eh) : NULL;
+    return (struct power_update_state){.source = ev ? ev->source : 0};
+}
+static void battery_circles_power_update_cb(struct power_update_state state) {
+    /* Read the latest connection-scoped cache, not an older queued event value.
+     * A side report can swap positions, so redraw every half. */
+    ARG_UNUSED(state);
+    for (uint8_t source = 0; source < PERIPHERAL_COUNT; source++)
+        update_peripheral_display(source);
+}
+ZMK_DISPLAY_WIDGET_LISTENER(widget_battery_circles_power, struct power_update_state,
+                            battery_circles_power_update_cb, battery_circles_get_power_state);
+ZMK_SUBSCRIPTION(widget_battery_circles_power, zmk_peripheral_power_state_changed);
+
+extern const lv_image_dsc_t prospector_usb_power_icon;
+
+/* The firmware builds LVGL without the image widget (CONFIG_LV_USE_IMAGE off),
+ * so draw the A8 icon through the draw layer, recoloured black. */
+static void plug_draw_cb(lv_event_t *e) {
+    lv_obj_t *obj = lv_event_get_target(e);
+    lv_area_t coords;
+    lv_obj_get_coords(obj, &coords);
+    lv_draw_image_dsc_t dsc;
+    lv_draw_image_dsc_init(&dsc);
+    dsc.src = &prospector_usb_power_icon;
+    dsc.recolor = lv_color_hex(0x000000);
+    dsc.recolor_opa = LV_OPA_COVER;
+    lv_draw_image(lv_event_get_layer(e), &dsc, &coords);
+}
+
+static lv_obj_t *create_plug(lv_obj_t *box) {
+    lv_obj_t *plug = lv_obj_create(box);
+    lv_obj_remove_style_all(plug);
+    lv_obj_remove_flag(plug, LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_size(plug, prospector_usb_power_icon.header.w, prospector_usb_power_icon.header.h);
+    lv_obj_align(plug, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_event_cb(plug, plug_draw_cb, LV_EVENT_DRAW_MAIN, NULL);
+    lv_obj_add_flag(plug, LV_OBJ_FLAG_HIDDEN);
+    return plug;
+}
+#endif
 
 int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, lv_obj_t *parent) {
     init_styles();
@@ -470,6 +585,9 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
             lv_obj_set_style_text_letter_space(label, -1, LV_PART_MAIN);
             lv_obj_add_style(label, &style_label_disconnected, LV_PART_MAIN);
             lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+            peripheral_plugs[i] = create_plug(label_box);
+#endif
         }
 
     } else {
@@ -521,8 +639,10 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
             lv_bar_set_value(bar, 0, LV_ANIM_OFF);
             lv_obj_set_style_radius(bar, 2, LV_PART_MAIN);
             lv_obj_set_style_radius(bar, 2, LV_PART_INDICATOR);
-            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING), LV_PART_MAIN);
-            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL), LV_PART_INDICATOR);
+            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING),
+                                      LV_PART_MAIN);
+            lv_obj_set_style_bg_color(bar, lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL),
+                                      LV_PART_INDICATOR);
             lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_MAIN);
             lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_INDICATOR);
         }
@@ -533,6 +653,17 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
 
     widget->initialized = true;
     sys_slist_append(&widgets, &widget->node);
+
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+    for (uint8_t i = 0; i < PERIPHERAL_COUNT; i++) {
+        /* A valid cache is scoped to a live peripheral connection. Seed state
+         * when reporting completed before the display constructor ran. */
+        if (prospector_power_get(i) != PROSPECTOR_POWER_UNKNOWN)
+            peripheral_connected[i] = true;
+        update_peripheral_display(i);
+    }
+    widget_battery_circles_power_init();
+#endif
 
     return 0;
 }

@@ -4,7 +4,7 @@
 #include <zephyr/kernel.h>
 
 #define WPM_BAR_COUNT 26
-#define WPM_MAX 120
+#define WPM_MAX       120
 
 struct zmk_widget_wpm_meter {
     sys_snode_t node;

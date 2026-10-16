@@ -3,11 +3,21 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #define K_FOREVER 0
 #define K_NO_WAIT 0
 #define K_MSEC(ms) (ms)
+#define K_SECONDS(sec) ((sec) * 1000)
+#define ARG_UNUSED(x) (void)(x)
+#define snprintk snprintf
+
+struct k_work_q {
+    int unused;
+};
+
+int64_t k_uptime_get(void);
 
 struct k_mutex {
     int unused;

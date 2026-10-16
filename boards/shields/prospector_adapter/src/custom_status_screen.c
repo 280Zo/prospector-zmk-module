@@ -5,6 +5,12 @@
 #include <zmk/display.h>
 
 #include <prospector/display_pages.h>
+#if IS_ENABLED(CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
+#include "brightness_toast.h"
+#endif
+#if IS_ENABLED(CONFIG_PROSPECTOR_MODIFIER_TOAST)
+#include <prospector/modifier_toast.h>
+#endif
 
 #if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
 #include "diagnostics_page.h"
@@ -48,9 +54,9 @@ static lv_obj_t *avatar_page;
 static uint8_t active_page;
 static uint8_t requested_page;
 
-#define PROSPECTOR_AVATAR_OVERLAY_ONLY \
-    (IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE) && \
-     IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA) && \
+#define PROSPECTOR_AVATAR_OVERLAY_ONLY                                                             \
+    (IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE) &&                                           \
+     IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA) &&                                          \
      !IS_ENABLED(CONFIG_PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT))
 
 static void apply_requested_page(void);
@@ -117,6 +123,10 @@ static void apply_requested_page(void) {
 #endif
 
     active_page = page;
+#if IS_ENABLED(CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
+    prospector_modifier_row_set_status_visible(page == PROSPECTOR_DISPLAY_PAGE_STATUS &&
+                                               !PROSPECTOR_AVATAR_OVERLAY_ONLY);
+#endif
     LOG_INF("Prospector page applied: %u", active_page);
 }
 
@@ -229,5 +239,8 @@ lv_obj_t *zmk_display_status_screen() {
     active_page = PROSPECTOR_DISPLAY_PAGE_STATUS;
     apply_requested_page();
 
+#if IS_ENABLED(CONFIG_PROSPECTOR_MODIFIER_TOAST)
+    prospector_modifier_toast_init();
+#endif
     return status_page;
 }

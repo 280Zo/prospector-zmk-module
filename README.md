@@ -87,9 +87,37 @@ To capture Operator screen renders for documentation, see
 compiles the Operator LVGL widgets locally and keeps external ZMK/Zephyr/LVGL
 dependencies in an ignored local cache.
 
+### Operator session statistics
+
+Enable `CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS=y` with the Operator layout and
+modifier frontend. The top row shows the highest raw WPM since dongle boot, a
+centred copy of the Diagnostics key-balance bar, and the existing compact
+keycode-press count (`12.3K` at 12,345; the large Operator font has no lowercase,
+so `K` matches `M`; the saturated value shows `999M`; Diagnostics keeps `12.3k` and
+`999M+`). The bar's marker leans toward the half you have just been typing on and
+drifts back to centre once a second. Presses that complete a combo count; combo's
+internal re-sends of a press count once. The small `TOP/WPM` and `KEY/PRESS`
+labels are centred beside, and vertically centred on, the larger numbers. The
+original current-WPM meter and grey recent-peak marker remain below them.
+
+The modifier row sits below the layer line. Inactive configured modifiers are
+dim; active modifiers are cyan. Its single fixed-width Caps slot shows CAPS WORD,
+replaced by CAPS LOCK whenever the selected connected host reports Caps Lock;
+switching between them never moves the other words. Brightness
+temporarily replaces this row for 1500 ms with a percentage or `Auto`, then
+restores the latest modifier state. Diagnostics/avatar retain global feedback.
+
+Statistics reset when the dongle restarts, not when a half disconnects, the page
+changes or the display sleeps. There is no reset-key binding in this stage.
+The balance follows reported LEFT/RIGHT identity, including late discovery; before
+any presses its marker sits at the centre tick. The key count and balance live only
+on this screen; Diagnostics shows BALL, TYPOS and DROPS from the same telemetry.
+
 ## Usage
 
 For split keyboards, the peripheral battery widget arranges sub-widgets in pairing order. After flashing the dongle, pair the left side first, then the right side. For more than two peripherals, pair them left to right.
+
+With the Operator layout and `CONFIG_PROSPECTOR_POWER_STATUS` enabled on the dongle and both halves, pairing order no longer matters: set `CONFIG_PROSPECTOR_SPLIT_SIDE=1` on the left half and `CONFIG_PROSPECTOR_SPLIT_SIDE=2` on the right half, and each half reports its side so the battery circles and Diagnostics rows are placed by side. (Classic, Radii and Field layouts still follow pairing order.)
 
 The layer display shows the `display-name` property when available, falling back to the layer index otherwise. To add a `display-name` to a keymap layer:
 
@@ -142,12 +170,16 @@ Enable the diagnostics page in your firmware `.conf` with:
 CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE=y
 ```
 
+![Prospector diagnostics page](docs/images/diagnostics-page.png)
+
 | Section | Description |
 | --- | --- |
-| `KEYS PRESSED` | Session key counter based on ZMK keycode press events. The value is capped internally and displayed compactly, for example `9999`, `12.3k`, `123k`, `1.2M`, or `999M+`. The small balance marker moves left for P1 key events, right for P2 key events, and slowly settles back to center. It resets on reboot. |
+| `BALL` | Distance the split trackball has rolled since the dongle started, including while scrolling: `12.4m`, then `12.3km` from 1 km and `123km` from 100 km. Computed from the peripheral's raw sensor motion (ahead of your input processors, so slow and scroll layers still count real travel) at `CONFIG_PROSPECTOR_BALL_CPI` (default 800), so it is approximate. Mouse-key movement is not counted. |
+| `TYPOS` | Backspace presses as a share of all key presses (the same total as the Operator `KEY/PRESS` count), to one decimal, for example `6.2%`; `--` before the first press. A held Backspace counts once. |
+| `DROPS` | Connection drops per half since startup, by side (`L0 R2`), capped at `9+`. A drop counts only if that half had a key press in the last 9 minutes, because each half's own 10-minute idle sleep disconnects exactly like a dropout. A half used only for trackball movement for over 9 minutes would therefore not count a real drop. Peripheral rows are labelled `L`/`R` when the halves report their side, otherwise `P1`/`P2` in pairing order. All three reset on reboot. |
 | `BRIGHT` | Current Prospector backlight brightness. `A 80%` means ambient-light auto mode; `M 80%` means manual or fixed mode. |
 | `ALS` | Last cached ambient light reading from the APDS9960 brightness sampler, shown in lux. Non-ALS builds, or builds with no valid sample yet, show `N/A`. |
-| `MEM` | LVGL/Zephyr display heap usage as `used/free` KiB, for example `12/20k`. This is the runtime pool used by the diagnostics overlay and status screen. |
+| `UI MEM` | Display (LVGL) memory in use (to 0.1 KiB) out of the configured pool, for example `20.3/32k`, updated every second. Usage drops when screen items are freed, but most items are created once and kept, so it usually stays fairly flat. The bar shows the same ratio; the yellow tick marks the highest use since boot. This pool is the only memory on the dongle that grows and shrinks at runtime; everything else is reserved at build time. |
 | `PERIPHERALS` | Split peripheral rows. Each row shows RSSI in dB and measured central-side key processing latency in milliseconds. The latency value starts when the central receives a split position event, so it does not include switch debounce or BLE airtime before receipt. |
 | `FIRMWARE` | ZMK application version from Zephyr's generated `APP_VERSION_STRING`, shown as `zmk <version>`. |
 | `UPTIME` | Time since boot, capped to a fixed-width `999d 23h 59m` format. |

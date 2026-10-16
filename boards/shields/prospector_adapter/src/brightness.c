@@ -9,6 +9,9 @@
 #include <zephyr/logging/log.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/activity_state_changed.h>
+
+#include "brightness_toast.h"
+
 LOG_MODULE_REGISTER(als, 4);
 
 static const struct device *pwm_leds_dev = DEVICE_DT_GET_ONE(pwm_leds);
@@ -37,7 +40,11 @@ static bool backlight_active = true;
 static bool auto_brightness_enabled = PROSPECTOR_DEFAULT_AUTO_MODE;
 static int32_t ambient_light_value;
 static bool ambient_light_valid;
+static uint32_t feedback_sequence;
 K_MUTEX_DEFINE(brightness_lock);
+/* Serialize whole updates/fades across key events, hold-repeat work, ALS and
+ * activity events; brightness_lock still protects short-lived state reads. */
+K_MUTEX_DEFINE(brightness_update_lock);
 
 #define PWM_MIN 1   // Minimum PWM duty cycle (%) - keep display visible
 #define PWM_MAX 100 // Maximum PWM duty cycle (%)
@@ -84,20 +91,33 @@ static int bl_fade(uint8_t source, uint8_t target) {
     return 0;
 }
 
-static int set_target_brightness(uint8_t brightness, bool manual_mode) {
+static int set_target_brightness_locked(uint8_t brightness, bool manual_mode) {
     uint8_t source;
     uint8_t target = clamp_brightness(brightness);
     bool active;
+    uint32_t sequence = 0;
 
     k_mutex_lock(&brightness_lock, K_FOREVER);
+    /* An ALS sample may have been collected before a manual command or idle
+     * event; recheck its eligibility after acquiring the update lock. */
+    if (!manual_mode && (!auto_brightness_enabled || !backlight_active)) {
+        k_mutex_unlock(&brightness_lock);
+        return 0;
+    }
     if (manual_mode) {
         auto_brightness_enabled = false;
     }
     target_brightness = target;
     source = displayed_brightness;
     active = backlight_active;
+    if (manual_mode) {
+        sequence = ++feedback_sequence;
+    }
     k_mutex_unlock(&brightness_lock);
 
+    if (manual_mode) {
+        prospector_brightness_toast_request(sequence, target, false, active);
+    }
     if (!active) {
         return 0;
     }
@@ -105,11 +125,22 @@ static int set_target_brightness(uint8_t brightness, bool manual_mode) {
     return bl_fade(source, target);
 }
 
+static int set_target_brightness(uint8_t brightness, bool manual_mode) {
+    k_mutex_lock(&brightness_update_lock, K_FOREVER);
+    int rc = set_target_brightness_locked(brightness, manual_mode);
+    k_mutex_unlock(&brightness_update_lock);
+    return rc;
+}
+
 int prospector_brightness_auto_on(void) {
 #ifdef CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
     k_mutex_lock(&brightness_lock, K_FOREVER);
     auto_brightness_enabled = true;
+    uint8_t target = target_brightness;
+    bool active = backlight_active;
+    uint32_t sequence = ++feedback_sequence;
     k_mutex_unlock(&brightness_lock);
+    prospector_brightness_toast_request(sequence, target, true, active);
     return 0;
 #else
     return -ENOTSUP;
@@ -119,7 +150,11 @@ int prospector_brightness_auto_on(void) {
 int prospector_brightness_manual_on(void) {
     k_mutex_lock(&brightness_lock, K_FOREVER);
     auto_brightness_enabled = false;
+    uint8_t target = target_brightness;
+    bool active = backlight_active;
+    uint32_t sequence = ++feedback_sequence;
     k_mutex_unlock(&brightness_lock);
+    prospector_brightness_toast_request(sequence, target, false, active);
     return 0;
 }
 
@@ -127,7 +162,12 @@ int prospector_brightness_toggle_auto(void) {
 #ifdef CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
     k_mutex_lock(&brightness_lock, K_FOREVER);
     auto_brightness_enabled = !auto_brightness_enabled;
+    bool automatic = auto_brightness_enabled;
+    uint8_t target = target_brightness;
+    bool active = backlight_active;
+    uint32_t sequence = ++feedback_sequence;
     k_mutex_unlock(&brightness_lock);
+    prospector_brightness_toast_request(sequence, target, automatic, active);
     return 0;
 #else
     return -ENOTSUP;
@@ -141,6 +181,7 @@ int prospector_brightness_set_manual(uint8_t brightness) {
 int prospector_brightness_manual_step(int direction) {
     uint8_t next;
 
+    k_mutex_lock(&brightness_update_lock, K_FOREVER);
     k_mutex_lock(&brightness_lock, K_FOREVER);
     if (direction > 0) {
         next = MIN(target_brightness + CONFIG_PROSPECTOR_BRIGHTNESS_STEP, PWM_MAX);
@@ -149,7 +190,9 @@ int prospector_brightness_manual_step(int direction) {
     }
     k_mutex_unlock(&brightness_lock);
 
-    return set_target_brightness(next, true);
+    int rc = set_target_brightness_locked(next, true);
+    k_mutex_unlock(&brightness_update_lock);
+    return rc;
 }
 
 bool prospector_brightness_is_auto(void) {
@@ -349,20 +392,30 @@ static int als_brightness_activity_listener(const zmk_event_t *eh) {
 
     switch (ev->state) {
     case ZMK_ACTIVITY_ACTIVE: {
+        k_mutex_lock(&brightness_update_lock, K_FOREVER);
         k_mutex_lock(&brightness_lock, K_FOREVER);
         backlight_active = true;
         uint8_t restore_brightness = target_brightness;
+        uint32_t sequence = ++feedback_sequence;
         k_mutex_unlock(&brightness_lock);
-        return bl_fade(0, restore_brightness);
+        prospector_brightness_toast_request(sequence, restore_brightness, false, false);
+        int rc = bl_fade(0, restore_brightness);
+        k_mutex_unlock(&brightness_update_lock);
+        return rc;
     }
     case ZMK_ACTIVITY_IDLE:
     case ZMK_ACTIVITY_SLEEP: {
+        k_mutex_lock(&brightness_update_lock, K_FOREVER);
         k_mutex_lock(&brightness_lock, K_FOREVER);
         uint8_t source_brightness = displayed_brightness;
         backlight_active = false;
+        uint32_t sequence = ++feedback_sequence;
         k_mutex_unlock(&brightness_lock);
 
-        return bl_fade(source_brightness, 0);
+        prospector_brightness_toast_request(sequence, 0, false, false);
+        int rc = bl_fade(source_brightness, 0);
+        k_mutex_unlock(&brightness_update_lock);
+        return rc;
     }
     default:
         return -EINVAL;
@@ -386,19 +439,30 @@ static int fixed_brightness_activity_listener(const zmk_event_t *eh) {
 
     switch (ev->state) {
     case ZMK_ACTIVITY_ACTIVE: {
+        k_mutex_lock(&brightness_update_lock, K_FOREVER);
         k_mutex_lock(&brightness_lock, K_FOREVER);
         backlight_active = true;
         uint8_t restore_brightness = target_brightness;
+        uint32_t sequence = ++feedback_sequence;
         k_mutex_unlock(&brightness_lock);
-        return bl_fade(0, restore_brightness);
+        prospector_brightness_toast_request(sequence, restore_brightness, false, false);
+        int rc = bl_fade(0, restore_brightness);
+        k_mutex_unlock(&brightness_update_lock);
+        return rc;
     }
     case ZMK_ACTIVITY_IDLE:
     case ZMK_ACTIVITY_SLEEP: {
+        k_mutex_lock(&brightness_update_lock, K_FOREVER);
         k_mutex_lock(&brightness_lock, K_FOREVER);
         uint8_t source_brightness = displayed_brightness;
         backlight_active = false;
+        uint32_t sequence = ++feedback_sequence;
         k_mutex_unlock(&brightness_lock);
-        return bl_fade(source_brightness, 0);
+
+        prospector_brightness_toast_request(sequence, 0, false, false);
+        int rc = bl_fade(source_brightness, 0);
+        k_mutex_unlock(&brightness_update_lock);
+        return rc;
     }
     default:
         return -EINVAL;

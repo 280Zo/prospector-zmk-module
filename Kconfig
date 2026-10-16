@@ -1,3 +1,21 @@
+config PROSPECTOR_POWER_STATUS
+    bool "Report per-half USB power to Prospector"
+    depends on ZMK_SPLIT && ZMK_BLE && SOC_NRF52840
+    depends on !ZMK_SPLIT_ROLE_CENTRAL || SHIELD_PROSPECTOR_ADAPTER
+    default n
+    help
+      Separate encrypted power-status telemetry. Reports VBUS presence, not
+      actual charging or state of charge; leaves standard battery service intact.
+
+config PROSPECTOR_SPLIT_SIDE
+    int "Which half this peripheral is (0 unknown, 1 left, 2 right)"
+    depends on PROSPECTOR_POWER_STATUS && !ZMK_SPLIT_ROLE_CENTRAL
+    range 0 2
+    default 0
+    help
+      Reported to the Prospector dongle so it places each half by side rather
+      than by pairing order. Set in each half's shield .conf.
+
 choice PROSPECTOR_STATUS_SCREEN_LAYOUT
     prompt "Status screen layout"
     default PROSPECTOR_STATUS_SCREEN_CLASSIC
@@ -73,7 +91,16 @@ config PROSPECTOR_SHOW_INACTIVE_MODIFIERS
     help
       When enabled, inactive modifiers are shown with a dim color.
       When disabled, inactive modifiers are hidden completely.
-      Only affects classic and field layouts.
+       Only affects classic and field layouts.
+
+config PROSPECTOR_MODIFIER_TOAST
+    bool "Show live modifier chords and Caps modes in the global toast"
+    depends on SHIELD_PROSPECTOR_ADAPTER && PROSPECTOR_SHOW_MODIFIERS
+    default y if PROSPECTOR_STATUS_SCREEN_OPERATOR
+    select ZMK_HID_INDICATORS
+    help
+      Replace the Operator modifier row with a global live chord toast and
+      persistent Caps Word/Caps Lock badges. Caps Lock follows host LED reports.
 
 config PROSPECTOR_MODIFIER_ORDER
     string "Modifier display order"
@@ -83,6 +110,26 @@ config PROSPECTOR_MODIFIER_ORDER
       Order of modifier indicators. Use exactly 4 characters:
       G=GUI/Cmd, A=Alt/Opt, C=Control, S=Shift.
       Each character must appear exactly once.
+
+config PROSPECTOR_BALL_CPI
+    int "Split trackball sensor CPI for the Diagnostics distance (BALL)"
+    depends on PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE
+    default 800
+    range 100 20000
+    help
+      Counts per inch reported by the peripheral pointing sensor before any input
+      processors. Used only to convert raw travel into metres on the Diagnostics page.
+
+config PROSPECTOR_OPERATOR_SESSION_STATS
+    bool "Operator session statistics and below-layer modifier row"
+    depends on PROSPECTOR_STATUS_SCREEN_OPERATOR && PROSPECTOR_MODIFIER_TOAST
+    select ZMK_WPM
+    select LV_FONT_MONTSERRAT_10
+    select LV_FONT_MONTSERRAT_14
+    help
+      Show boot-best WPM, compact key count and per-side press percentages above
+      the current WPM meter. Place persistent modifiers and one Caps mode slot
+      below the layer line; Caps Lock takes precedence over Caps Word.
 
 choice PROSPECTOR_MODIFIER_OS
     prompt "Modifier key style"

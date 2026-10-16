@@ -42,6 +42,12 @@ add_executable(operator_renderer
   ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/fonts/DINish_Medium_24.c
 )
 
+add_executable(diagnostics_renderer
+  src/diagnostics_main.c
+  ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/session_stats.c
+  ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/diagnostics_page.c
+)
+
 target_compile_definitions(operator_renderer PRIVATE
   CONFIG_PROSPECTOR_STATUS_SCREEN_OPERATOR=1
   CONFIG_PROSPECTOR_LAYER_NAME_UPPERCASE=1
@@ -52,7 +58,16 @@ target_compile_definitions(operator_renderer PRIVATE
   PERIPHERAL_COUNT=${OPERATOR_PERIPHERAL_COUNT}
 )
 
+target_compile_definitions(diagnostics_renderer PRIVATE
+  PROSPECTOR_RENDER_DIAGNOSTICS=1
+  APP_VERSION_STRING="0.3.0"
+  CONFIG_SYS_HEAP_RUNTIME_STATS=1
+  CONFIG_LV_Z_MEM_POOL_SYS_HEAP=1
+  CONFIG_LV_Z_MEM_POOL_SIZE=32768
+)
+
 target_compile_options(operator_renderer PRIVATE -include stdio.h)
+target_compile_options(diagnostics_renderer PRIVATE -include stdio.h)
 
 target_include_directories(operator_renderer PRIVATE
   ${CMAKE_CURRENT_LIST_DIR}/include
@@ -61,4 +76,12 @@ target_include_directories(operator_renderer PRIVATE
   ${PROSPECTOR_ROOT}/include
 )
 
+target_include_directories(diagnostics_renderer PRIVATE
+  ${CMAKE_CURRENT_LIST_DIR}/include
+  ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/include
+  ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src
+  ${PROSPECTOR_ROOT}/include
+)
+
 target_link_libraries(operator_renderer PRIVATE lvgl::lvgl m)
+target_link_libraries(diagnostics_renderer PRIVATE lvgl::lvgl m)

@@ -17,6 +17,7 @@
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 #include <zmk/ble.h>
+#include <prospector/peripheral_slots.h>
 
 #include <zmk/events/split_central_status_changed.h>
 
@@ -48,6 +49,10 @@ static struct psptr_peripheral_slot *psptr_peripheral_slot_for_conn(struct bt_co
         return NULL;
     }
     return &peripherals[idx];
+}
+
+int prospector_peripheral_index_for_conn(struct bt_conn *conn) {
+    return psptr_peripheral_slot_index_for_conn(conn);
 }
 
 static int release_psptr_peripheral_slot(int index) {

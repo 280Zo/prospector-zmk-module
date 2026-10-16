@@ -1,2 +1,3 @@
 notes.md
 .render-cache/
+__pycache__/
