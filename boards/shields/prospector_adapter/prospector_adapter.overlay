@@ -15,6 +15,12 @@
          #binding-cells = <1>;
          display-name = "Prospector Display Page";
       };
+
+      /omit-if-no-ref/ pth: prospector_theme {
+         compatible = "zmk,behavior-prospector-theme";
+         #binding-cells = <1>;
+         display-name = "Prospector Theme";
+      };
    };
 
    prospector_green_theme: prospector_green_theme {

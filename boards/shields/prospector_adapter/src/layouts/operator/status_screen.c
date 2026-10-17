@@ -20,9 +20,20 @@ static struct zmk_widget_wpm_meter wpm_meter_widget;
 static struct zmk_widget_layer_display layer_display_widget;
 static struct zmk_widget_battery_circles battery_circles_widget;
 static struct zmk_widget_output output_widget;
+static lv_obj_t *operator_screen;
+
+/* Theme switch: screen background, then one full redraw (textures and the USB plug
+ * read their colours while drawing). */
+void operator_status_screen_apply_palette(void) {
+    if (operator_screen == NULL)
+        return;
+    lv_obj_set_style_bg_color(operator_screen, lv_color_hex(DISPLAY_COLOR_BG), LV_PART_MAIN);
+    lv_obj_invalidate(operator_screen);
+}
 
 lv_obj_t *zmk_display_status_screen() {
     lv_obj_t *screen = lv_obj_create(NULL);
+    operator_screen = screen;
     lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_style_bg_color(screen, lv_color_hex(DISPLAY_COLOR_BG), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(screen, 255, LV_PART_MAIN);

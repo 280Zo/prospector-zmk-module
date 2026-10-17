@@ -30,6 +30,7 @@ add_executable(operator_renderer
   src/host_modifier_order.c
   ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/layouts/operator/status_screen.c
   ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/layouts/operator/background_texture.c
+  ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/layouts/operator/operator_theme.c
   ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/layouts/operator/modifier_indicator.c
   ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/layouts/operator/wpm_meter.c
   ${PROSPECTOR_ROOT}/boards/shields/prospector_adapter/src/layouts/operator/layer_display.c

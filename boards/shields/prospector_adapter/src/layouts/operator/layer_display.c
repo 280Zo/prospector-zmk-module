@@ -67,3 +67,8 @@ int zmk_widget_layer_display_init(struct zmk_widget_layer_display *widget, lv_ob
 lv_obj_t *zmk_widget_layer_display_obj(struct zmk_widget_layer_display *widget) {
     return widget->obj;
 }
+
+/* Theme switch: re-run the dot colours for the current layer. */
+void zmk_widget_layer_display_apply_palette(void) {
+    layer_display_update_cb(layer_display_get_state(NULL));
+}

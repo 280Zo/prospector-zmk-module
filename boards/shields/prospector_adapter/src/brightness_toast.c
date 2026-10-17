@@ -30,6 +30,8 @@ static bool requested_lock;
 static bool chord_held;
 static char requested_chord[64];
 static int64_t chord_expires_at;
+static char theme_name[16];
+static int64_t theme_expires_at;
 static bool modifier_cache_initialized;
 K_MUTEX_DEFINE(toast_lock);
 
@@ -70,6 +72,15 @@ static void create_primary(void) {
         lv_obj_set_style_max_width(toast_label, 246, 0);
         lv_label_set_long_mode(toast_label, LV_LABEL_LONG_WRAP);
     }
+}
+
+static void show_theme_name(void) {
+    create_primary();
+    lv_label_set_text(toast_label, theme_name);
+    lv_obj_set_style_text_color(toast_label, lv_color_hex(0xffffff), 0);
+    lv_obj_align(toast, LV_ALIGN_TOP_RIGHT, -6, 6);
+    lv_obj_remove_flag(toast, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(toast);
 }
 
 static lv_obj_t *create_badge(const char *text) {
@@ -218,6 +229,17 @@ void prospector_modifier_row_set_status_visible(bool visible) {
         k_work_reschedule_for_queue(zmk_display_work_q(), &toast_work, K_MSEC(0));
     k_mutex_unlock(&toast_lock);
 }
+
+/* Theme switch: the row's labels are recoloured on its next render. */
+void prospector_modifier_row_apply_palette(void) {
+    k_mutex_lock(&toast_lock, K_FOREVER);
+    if (operator_brightness_label)
+        lv_obj_set_style_text_color(operator_brightness_label,
+                                    lv_color_hex(DISPLAY_COLOR_BRIGHTNESS), 0);
+    if (zmk_display_is_initialized())
+        k_work_reschedule_for_queue(zmk_display_work_q(), &toast_work, K_MSEC(0));
+    k_mutex_unlock(&toast_lock);
+}
 #endif
 
 /* Only this display-queue handler touches LVGL. Holding the toast lock prevents
@@ -238,19 +260,25 @@ static void toast_work_handler(struct k_work *work) {
     int64_t now = k_uptime_get();
     int64_t remaining = expires_at - now;
     int64_t grace = chord_expires_at - now;
+    int64_t theme_remaining = theme_expires_at - now;
     if (!chord_held && grace <= 0)
         requested_chord[0] = '\0';
     bool primary_visible = remaining > 0 || requested_chord[0] != '\0';
 #if defined(CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
     if (operator_status_visible) {
-        hide(toast);
+        if (theme_remaining > 0)
+            show_theme_name();
+        else
+            hide(toast);
         hide(mode_row);
         render_operator_row(remaining, grace);
     } else {
         hide(operator_row);
         hide(operator_brightness_label);
 #endif
-        if (primary_visible) {
+        if (theme_remaining > 0) {
+            show_theme_name();
+        } else if (primary_visible) {
             create_primary();
             if (remaining > 0) {
                 if (requested_auto)
@@ -274,6 +302,8 @@ static void toast_work_handler(struct k_work *work) {
     int64_t next = remaining > 0 ? remaining : 0;
     if (!chord_held && grace > 0 && (next == 0 || grace < next))
         next = grace;
+    if (theme_remaining > 0 && (next == 0 || theme_remaining < next))
+        next = theme_remaining;
     if (next > 0)
         k_work_reschedule_for_queue(zmk_display_work_q(), &toast_work, K_MSEC(next));
     k_mutex_unlock(&toast_lock);
@@ -293,6 +323,7 @@ void prospector_brightness_toast_request(uint32_t sequence, uint8_t target, bool
     bool initialized = zmk_display_is_initialized();
     overlay_active = show;
     expires_at = show && initialized ? k_uptime_get() + TOAST_DURATION_MS : 0;
+    theme_expires_at = 0; /* a brightness change replaces the theme name */
     if (!show) {
         requested_chord[0] = '\0';
         chord_held = false;
@@ -301,6 +332,18 @@ void prospector_brightness_toast_request(uint32_t sequence, uint8_t target, bool
     if (initialized) {
         k_work_reschedule_for_queue(zmk_display_work_q(), &toast_work, K_MSEC(0));
     }
+    k_mutex_unlock(&toast_lock);
+}
+
+void prospector_theme_toast_request(const char *name) {
+    k_mutex_lock(&toast_lock, K_FOREVER);
+    snprintf(theme_name, sizeof(theme_name), "%s", name);
+    bool initialized = zmk_display_is_initialized();
+    theme_expires_at = initialized ? k_uptime_get() + TOAST_DURATION_MS : 0;
+    expires_at = 0; /* the newer pop-up replaces a brightness value */
+    overlay_active = true;
+    if (initialized)
+        k_work_reschedule_for_queue(zmk_display_work_q(), &toast_work, K_MSEC(0));
     k_mutex_unlock(&toast_lock);
 }
 

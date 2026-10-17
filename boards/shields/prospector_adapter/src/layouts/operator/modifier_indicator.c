@@ -115,3 +115,8 @@ int zmk_widget_modifier_indicator_init(struct zmk_widget_modifier_indicator *wid
 lv_obj_t *zmk_widget_modifier_indicator_obj(struct zmk_widget_modifier_indicator *widget) {
     return widget->obj;
 }
+
+/* Theme switch: re-run the label colours for the current modifiers. */
+void zmk_widget_modifier_indicator_apply_palette(void) {
+    modifier_indicator_update_cb(modifier_indicator_get_state(NULL));
+}

@@ -53,56 +53,54 @@ static lv_obj_t *peripheral_label_boxes[PERIPHERAL_COUNT];
 static lv_obj_t *peripheral_labels[PERIPHERAL_COUNT];
 static lv_obj_t *peripheral_battery_labels[PERIPHERAL_COUNT];
 
+static lv_style_t *const all_styles[] = {
+    &style_arc_ring_disconnected,
+    &style_arc_ring_connected,
+    &style_arc_ring_low,
+    &style_arc_ind_disconnected,
+    &style_arc_ind_connected,
+    &style_arc_ind_low,
+    &style_label_box_disconnected,
+    &style_label_box_connected,
+    &style_label_box_low,
+    &style_label_disconnected,
+    &style_label_connected,
+    &style_battery_label_disconnected,
+    &style_battery_label_connected,
+};
+
+/* Colours come from the current theme; re-run after a theme switch. Setting an
+ * existing style property replaces it in place without allocating. */
+static void set_style_colors(void) {
+    lv_style_set_arc_color(&style_arc_ring_disconnected,
+                           lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING));
+    lv_style_set_arc_color(&style_arc_ring_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_RING));
+    lv_style_set_arc_color(&style_arc_ring_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_RING));
+    lv_style_set_arc_color(&style_arc_ind_disconnected,
+                           lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
+    lv_style_set_arc_color(&style_arc_ind_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
+    lv_style_set_arc_color(&style_arc_ind_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL));
+    lv_style_set_bg_color(&style_label_box_disconnected,
+                          lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
+    lv_style_set_bg_color(&style_label_box_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
+    lv_style_set_bg_color(&style_label_box_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL));
+    lv_style_set_text_color(&style_label_disconnected,
+                            lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_LABEL));
+    lv_style_set_text_color(&style_label_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_NUMBER));
+    lv_style_set_text_color(&style_battery_label_disconnected,
+                            lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
+    lv_style_set_text_color(&style_battery_label_connected,
+                            lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
+}
+
 static void init_styles(void) {
     if (styles_initialized) {
         return;
     }
 
-    lv_style_init(&style_arc_ring_disconnected);
-    lv_style_set_arc_color(&style_arc_ring_disconnected,
-                           lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_RING));
-
-    lv_style_init(&style_arc_ring_connected);
-    lv_style_set_arc_color(&style_arc_ring_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_RING));
-
-    lv_style_init(&style_arc_ring_low);
-    lv_style_set_arc_color(&style_arc_ring_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_RING));
-
-    lv_style_init(&style_arc_ind_disconnected);
-    lv_style_set_arc_color(&style_arc_ind_disconnected,
-                           lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
-
-    lv_style_init(&style_arc_ind_connected);
-    lv_style_set_arc_color(&style_arc_ind_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
-
-    lv_style_init(&style_arc_ind_low);
-    lv_style_set_arc_color(&style_arc_ind_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL));
-
-    lv_style_init(&style_label_box_disconnected);
-    lv_style_set_bg_color(&style_label_box_disconnected,
-                          lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
-
-    lv_style_init(&style_label_box_connected);
-    lv_style_set_bg_color(&style_label_box_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
-
-    lv_style_init(&style_label_box_low);
-    lv_style_set_bg_color(&style_label_box_low, lv_color_hex(DISPLAY_COLOR_BATTERY_LOW_FILL));
-
-    lv_style_init(&style_label_disconnected);
-    lv_style_set_text_color(&style_label_disconnected,
-                            lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_LABEL));
-
-    lv_style_init(&style_label_connected);
-    lv_style_set_text_color(&style_label_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_NUMBER));
-
-    lv_style_init(&style_battery_label_disconnected);
-    lv_style_set_text_color(&style_battery_label_disconnected,
-                            lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_FILL));
-
-    lv_style_init(&style_battery_label_connected);
-    lv_style_set_text_color(&style_battery_label_connected,
-                            lv_color_hex(DISPLAY_COLOR_BATTERY_FILL));
-
+    for (size_t i = 0; i < sizeof(all_styles) / sizeof(all_styles[0]); i++)
+        lv_style_init(all_styles[i]);
+    set_style_colors();
     styles_initialized = true;
 }
 
@@ -670,4 +668,21 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
 
 lv_obj_t *zmk_widget_battery_circles_obj(struct zmk_widget_battery_circles *widget) {
     return widget->obj;
+}
+
+/* Theme switch: recolour the shared styles, then re-run each side's state so the
+ * bars pick up the new colours (unchanged values start no animation). */
+void zmk_widget_battery_circles_apply_palette(void) {
+    if (!styles_initialized)
+        return;
+    set_style_colors();
+    for (size_t i = 0; i < sizeof(all_styles) / sizeof(all_styles[0]); i++)
+        lv_obj_report_style_change(all_styles[i]);
+    for (uint8_t source = 0; source < PERIPHERAL_COUNT; source++)
+        update_peripheral_display(source);
+#if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
+    for (uint8_t i = 0; i < PERIPHERAL_COUNT; i++)
+        if (peripheral_plugs[i])
+            lv_obj_invalidate(peripheral_plugs[i]);
+#endif
 }

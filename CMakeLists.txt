@@ -34,6 +34,10 @@ if(CONFIG_SHIELD_PROSPECTOR_ADAPTER)
                 target_sources(app PRIVATE src/behaviors/behavior_prospector_display_page.c)
         endif()
 
+        if(CONFIG_DT_HAS_ZMK_BEHAVIOR_PROSPECTOR_THEME_ENABLED)
+                target_sources(app PRIVATE src/behaviors/behavior_prospector_theme.c)
+        endif()
+
         if(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE OR CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
                 # App library, ahead of ZMK's own sources, so physical presses are counted
                 # before combo.c can consume them. The build helper verifies the order.

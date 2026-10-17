@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+
+description: Prospector Operator theme switching behavior
+
+compatible: "zmk,behavior-prospector-theme"
+
+include: one_param.yaml

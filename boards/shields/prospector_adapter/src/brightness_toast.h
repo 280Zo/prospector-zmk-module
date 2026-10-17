@@ -15,6 +15,10 @@ void prospector_modifier_toast_request(const char *chord, bool caps_word, bool c
 /* Disconnect/profile invalidation must bypass ordinary release grace. */
 void prospector_modifier_toast_invalidate_chord(void);
 
+/* Theme name in the floating toast for 1.5 s on every page; a brightness change
+ * replaces it. The name is copied. */
+void prospector_theme_toast_request(const char *name);
+
 #if defined(CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
 void prospector_modifier_row_request(uint8_t mods, bool caps_word, bool caps_lock, bool active);
 /* Display-queue page switch; persistent row belongs only to Operator status. */

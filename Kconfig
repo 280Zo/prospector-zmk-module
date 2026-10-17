@@ -43,12 +43,13 @@ config PROSPECTOR_STATUS_SCREEN_OPERATOR
 endchoice
 
 choice PROSPECTOR_OPERATOR_THEME
-    prompt "Operator colour theme"
+    prompt "Operator colour theme at startup"
     depends on PROSPECTOR_STATUS_SCREEN_OPERATOR
     default PROSPECTOR_OPERATOR_THEME_DEFAULT
     help
-      Colours of the Operator status screen. Diagnostics and the avatar page keep
-      their own colours.
+      Colours of the Operator status screen when the dongle starts. The theme keys cycle
+      through all themes while it runs. Diagnostics and the avatar page keep their own
+      colours.
 
 config PROSPECTOR_OPERATOR_THEME_DEFAULT
     bool "Default"
@@ -70,7 +71,96 @@ config PROSPECTOR_OPERATOR_THEME_GITHUB
     help
       GitHub Dark High Contrast palette.
 
+config PROSPECTOR_OPERATOR_THEME_CUSTOM
+    bool "Custom"
+    depends on PROSPECTOR_OPERATOR_CUSTOM_THEME
+
 endchoice
+
+config PROSPECTOR_OPERATOR_CUSTOM_THEME
+    bool "Custom Operator theme"
+    depends on PROSPECTOR_STATUS_SCREEN_OPERATOR
+    help
+      Adds a seventh theme built from the 14 colours below. Every colour must be set
+      (dongle_prospector_operator_theme_custom.conf) or the build stops. Dark
+      backgrounds only. All other shades are worked out from these colours.
+
+if PROSPECTOR_OPERATOR_CUSTOM_THEME
+
+config PROSPECTOR_OPERATOR_CUSTOM_BG
+    hex "Background"
+    help
+      Screen background, boxes behind the WPM number and layer name, and dark text on
+      light fills. Must be dark; 0x000000 recommended (tinted backgrounds look washed
+      out on this screen).
+
+config PROSPECTOR_OPERATOR_CUSTOM_TEXT
+    hex "Text"
+    help
+      Layer name, active layer dot and light number text.
+
+config PROSPECTOR_OPERATOR_CUSTOM_MUTED
+    hex "Muted text"
+    help
+      TOP WPM and KEY PRESS labels, balance centre tick, modifier separators; base for
+      inactive modifiers and layer dots.
+
+config PROSPECTOR_OPERATOR_CUSTOM_OUTLINE
+    hex "Outline"
+    help
+      Balance bar track.
+
+config PROSPECTOR_OPERATOR_CUSTOM_ACCENT
+    hex "Accent"
+    help
+      WPM bars and the live WPM number.
+
+config PROSPECTOR_OPERATOR_CUSTOM_INFO
+    hex "Info"
+    help
+      TOP WPM and KEY PRESS values, held modifiers.
+
+config PROSPECTOR_OPERATOR_CUSTOM_MARKER
+    hex "Balance marker"
+    help
+      Balance bar marker.
+
+config PROSPECTOR_OPERATOR_CUSTOM_CAPS
+    hex "Caps"
+    help
+      CAPS WORD and CAPS LOCK when on.
+
+config PROSPECTOR_OPERATOR_CUSTOM_BRIGHT
+    hex "Brightness"
+    help
+      Brightness level shown in the modifier row.
+
+config PROSPECTOR_OPERATOR_CUSTOM_BATTERY
+    hex "Battery"
+    help
+      Battery ring and number box.
+
+config PROSPECTOR_OPERATOR_CUSTOM_LOW
+    hex "Low battery"
+    help
+      Battery ring and number box when low.
+
+config PROSPECTOR_OPERATOR_CUSTOM_USB
+    hex "USB"
+    help
+      USB button: active fill, inactive outline.
+
+config PROSPECTOR_OPERATOR_CUSTOM_BLE
+    hex "BLE"
+    help
+      BLE button: active fill, inactive outline.
+
+config PROSPECTOR_OPERATOR_CUSTOM_SLOT
+    hex "Profile slot"
+    help
+      Active profile slot fill; inactive slots are a dim shade of it.
+
+endif
 
 choice PROSPECTOR_OPERATOR_TEXTURE
     prompt "Operator background texture"

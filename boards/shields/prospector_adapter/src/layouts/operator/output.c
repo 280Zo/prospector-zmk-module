@@ -189,3 +189,11 @@ int zmk_widget_output_init(struct zmk_widget_output *widget, lv_obj_t *parent) {
 lv_obj_t *zmk_widget_output_obj(struct zmk_widget_output *widget) {
     return widget->obj;
 }
+
+/* Theme switch: buttons and slots re-apply every colour from the current palette. */
+void zmk_widget_output_apply_palette(void) {
+    struct zmk_widget_output *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
+        update_output_widget(widget);
+    }
+}

@@ -108,4 +108,17 @@ void prospector_session_stats_widget_init(lv_obj_t *parent) {
     session_stats_widget_refresh(NULL);
     stats_timer = lv_timer_create(session_stats_widget_refresh, 1000, NULL);
 }
+
+/* Theme switch: re-apply the stats row colours. */
+void prospector_session_stats_widget_apply_palette(void) {
+    if (top_label == NULL)
+        return;
+    lv_obj_set_style_text_color(top_label, lv_color_hex(DISPLAY_COLOR_LABEL), 0);
+    lv_obj_set_style_text_color(count_label, lv_color_hex(DISPLAY_COLOR_LABEL), 0);
+    lv_obj_set_style_text_color(top_value, lv_color_hex(DISPLAY_COLOR_VALUE), 0);
+    lv_obj_set_style_text_color(count_value, lv_color_hex(DISPLAY_COLOR_VALUE), 0);
+    lv_obj_set_style_bg_color(balance_track, lv_color_hex(DISPLAY_COLOR_BALANCE_TRACK), 0);
+    lv_obj_set_style_bg_color(balance_tick, lv_color_hex(DISPLAY_COLOR_BALANCE_TICK), 0);
+    lv_obj_set_style_bg_color(balance_marker, lv_color_hex(DISPLAY_COLOR_BALANCE_MARKER), 0);
+}
 #endif

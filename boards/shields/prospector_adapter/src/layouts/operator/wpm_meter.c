@@ -237,3 +237,27 @@ int zmk_widget_wpm_meter_init(struct zmk_widget_wpm_meter *widget, lv_obj_t *par
 }
 
 lv_obj_t *zmk_widget_wpm_meter_obj(struct zmk_widget_wpm_meter *widget) { return widget->obj; }
+
+/* Theme switch: recolour every bar for the current level, the peak marker and the
+ * WPM number and layer name with their background boxes. */
+void zmk_widget_wpm_meter_apply_palette(void) {
+    struct zmk_widget_wpm_meter *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
+        for (int i = 0; i < WPM_BAR_COUNT; i++) {
+            lv_obj_set_style_bg_color(widget->bars[i],
+                                      lv_color_hex(i < prev_active_bars
+                                                       ? DISPLAY_COLOR_WPM_BAR_ACTIVE
+                                                       : DISPLAY_COLOR_WPM_BAR_INACTIVE),
+                                      LV_PART_MAIN);
+        }
+        lv_obj_set_style_bg_color(widget->peak_indicator, lv_color_hex(DISPLAY_COLOR_WPM_PEAK),
+                                  LV_PART_MAIN);
+        lv_obj_set_style_text_color(widget->wpm_label, lv_color_hex(DISPLAY_COLOR_WPM_TEXT),
+                                    LV_PART_MAIN);
+        lv_obj_set_style_bg_color(widget->wpm_label, lv_color_hex(DISPLAY_COLOR_BG), LV_PART_MAIN);
+        lv_obj_set_style_text_color(widget->layer_label, lv_color_hex(DISPLAY_COLOR_LAYER_TEXT),
+                                    LV_PART_MAIN);
+        lv_obj_set_style_bg_color(widget->layer_label, lv_color_hex(DISPLAY_COLOR_BG),
+                                  LV_PART_MAIN);
+    }
+}
