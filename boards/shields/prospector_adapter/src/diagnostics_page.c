@@ -219,7 +219,7 @@ static lv_obj_t *create_panel(lv_obj_t *parent, int x, int y, int width, int hei
     lv_obj_clear_flag(panel, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_pos(panel, x, y);
     lv_obj_set_size(panel, width, height);
-    lv_obj_set_style_bg_color(panel, lv_color_hex(0x080808), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(panel, lv_color_hex(0x000000), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(panel, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_color(panel, lv_color_hex(0x30343a), LV_PART_MAIN);
     lv_obj_set_style_border_width(panel, 1, LV_PART_MAIN);
@@ -645,7 +645,7 @@ lv_obj_t *prospector_diagnostics_page_create(lv_obj_t *parent) {
     lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(page, lv_pct(100), lv_pct(100));
     lv_obj_set_pos(page, 0, 0);
-    lv_obj_set_style_bg_color(page, lv_color_hex(0x050505), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(page, lv_color_hex(0x000000), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(page, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(page, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(page, 0, LV_PART_MAIN);

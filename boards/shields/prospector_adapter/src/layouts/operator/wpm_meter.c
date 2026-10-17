@@ -196,7 +196,8 @@ int zmk_widget_wpm_meter_init(struct zmk_widget_wpm_meter *widget, lv_obj_t *par
     widget->peak_indicator = lv_obj_create(widget->obj);
     lv_obj_clear_flag(widget->peak_indicator, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(widget->peak_indicator, 4, bar_height);
-    lv_obj_set_style_bg_color(widget->peak_indicator, lv_color_hex(0x505050), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(widget->peak_indicator, lv_color_hex(DISPLAY_COLOR_WPM_PEAK),
+                              LV_PART_MAIN);
     lv_obj_set_style_bg_opa(widget->peak_indicator, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_border_width(widget->peak_indicator, 0, LV_PART_MAIN);
     lv_obj_set_style_radius(widget->peak_indicator, 1, LV_PART_MAIN);
@@ -207,7 +208,7 @@ int zmk_widget_wpm_meter_init(struct zmk_widget_wpm_meter *widget, lv_obj_t *par
     lv_obj_set_style_text_font(widget->wpm_label, &FR_Medium_32, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->wpm_label, lv_color_hex(DISPLAY_COLOR_WPM_TEXT),
                                 LV_PART_MAIN);
-    lv_obj_set_style_bg_color(widget->wpm_label, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(widget->wpm_label, lv_color_hex(DISPLAY_COLOR_BG), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(widget->wpm_label, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(widget->wpm_label, 6, LV_PART_MAIN);
     lv_obj_set_style_pad_ver(widget->wpm_label, 4, LV_PART_MAIN);
@@ -218,7 +219,8 @@ int zmk_widget_wpm_meter_init(struct zmk_widget_wpm_meter *widget, lv_obj_t *par
     lv_obj_set_style_text_font(widget->layer_label, &DINishExpanded_Light_36, LV_PART_MAIN);
     lv_obj_set_style_text_color(widget->layer_label, lv_color_hex(DISPLAY_COLOR_LAYER_TEXT),
                                 LV_PART_MAIN);
-    lv_obj_set_style_bg_color(widget->layer_label, lv_color_hex(0x000000), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(widget->layer_label, lv_color_hex(DISPLAY_COLOR_BG),
+                              LV_PART_MAIN);
     lv_obj_set_style_bg_opa(widget->layer_label, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_pad_hor(widget->layer_label, 8, LV_PART_MAIN);
     lv_obj_set_style_pad_top(widget->layer_label, 7, LV_PART_MAIN);

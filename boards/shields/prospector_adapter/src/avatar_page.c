@@ -404,7 +404,7 @@ static bool ensure_avatar_extra(void) {
     lv_obj_set_style_text_align(avatar_extra_text, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN);
     lv_obj_set_style_text_font(avatar_extra_text, AVATAR_FONT, LV_PART_MAIN);
     lv_obj_set_style_text_color(avatar_extra_text, lv_color_hex(0xffffff), LV_PART_MAIN);
-    lv_obj_set_style_bg_color(avatar_extra_text, lv_color_hex(0x05060d), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(avatar_extra_text, lv_color_hex(0x000000), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(avatar_extra_text, LV_OPA_COVER, LV_PART_MAIN);
     lv_obj_set_style_pad_all(avatar_extra_text, 2, LV_PART_MAIN);
     lv_obj_align(avatar_extra_text, LV_ALIGN_BOTTOM_MID, 0, -22);
@@ -614,7 +614,7 @@ lv_obj_t *prospector_avatar_page_create(lv_obj_t *parent) {
     lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
     lv_obj_set_size(page, lv_pct(100), lv_pct(100));
     lv_obj_set_pos(page, 0, 0);
-    lv_obj_set_style_bg_color(page, lv_color_hex(0x05060d), LV_PART_MAIN);
+    lv_obj_set_style_bg_color(page, lv_color_hex(0x000000), LV_PART_MAIN);
     lv_obj_set_style_bg_opa(page,
                             IS_ENABLED(CONFIG_PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT)
                                 ? LV_OPA_COVER

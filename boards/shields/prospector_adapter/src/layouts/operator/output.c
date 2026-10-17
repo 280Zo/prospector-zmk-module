@@ -54,10 +54,17 @@ static void set_ble_btn_state(lv_obj_t *btn, bool active) {
 }
 
 static void set_slot_active(lv_obj_t *slot, bool active) {
+    lv_obj_t *label = lv_obj_get_child(slot, 0);
     if (active) {
         lv_obj_set_style_bg_color(slot, lv_color_hex(DISPLAY_COLOR_SLOT_ACTIVE_BG), LV_PART_MAIN);
     } else {
         lv_obj_set_style_bg_color(slot, lv_color_hex(DISPLAY_COLOR_SLOT_INACTIVE_BG), LV_PART_MAIN);
+    }
+    if (label) {
+        lv_obj_set_style_text_color(
+            label,
+            lv_color_hex(active ? DISPLAY_COLOR_SLOT_ACTIVE_TEXT : DISPLAY_COLOR_SLOT_INACTIVE_TEXT),
+            LV_PART_MAIN);
     }
 }
 
@@ -137,7 +144,8 @@ static lv_obj_t *create_slot_btn(lv_obj_t *parent, int index, int x, int width, 
         snprintf(text, sizeof(text), "%d", index + 1);
         lv_label_set_text(label, text);
         lv_obj_set_style_text_font(label, &FG_Medium_20, LV_PART_MAIN);
-        lv_obj_set_style_text_color(label, lv_color_hex(0x000000), LV_PART_MAIN);
+        lv_obj_set_style_text_color(label, lv_color_hex(DISPLAY_COLOR_SLOT_INACTIVE_TEXT),
+                                    LV_PART_MAIN);
         lv_obj_center(label);
         lv_obj_set_style_translate_y(label, 1, LV_PART_MAIN);
     }

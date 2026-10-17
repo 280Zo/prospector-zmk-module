@@ -8,6 +8,8 @@
 #include <zmk/display.h>
 #if defined(CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
 #include <modifier_order.h>
+
+#include "layouts/operator/display_colors.h"
 #endif
 
 #define TOAST_DURATION_MS 1500
@@ -37,10 +39,6 @@ static void modifier_state_request(const char *chord, bool caps_word, bool caps_
 K_WORK_DELAYABLE_DEFINE(toast_work, toast_work_handler);
 
 #if defined(CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
-#ifndef OPERATOR_MOD_INACTIVE_COLOR
-/* AJ chose the "halfway" dim (between the old grey and the unlit WPM bars). */
-#define OPERATOR_MOD_INACTIVE_COLOR 0x34373a
-#endif
 static lv_obj_t *operator_row;
 static lv_obj_t *operator_mod_labels[4];
 static lv_obj_t *operator_caps_label;
@@ -156,7 +154,8 @@ static void render_operator_row(int64_t remaining, int64_t grace) {
         lv_obj_set_style_text_align(operator_caps_label, LV_TEXT_ALIGN_CENTER, 0);
         operator_brightness_label = lv_label_create(lv_layer_sys());
         lv_obj_set_style_text_font(operator_brightness_label, &lv_font_montserrat_14, 0);
-        lv_obj_set_style_text_color(operator_brightness_label, lv_color_hex(0xffd84a), 0);
+        lv_obj_set_style_text_color(operator_brightness_label,
+                                    lv_color_hex(DISPLAY_COLOR_BRIGHTNESS), 0);
         lv_obj_remove_flag(operator_brightness_label,
                            LV_OBJ_FLAG_CLICKABLE | LV_OBJ_FLAG_SCROLLABLE);
     }
@@ -167,13 +166,16 @@ static void render_operator_row(int64_t remaining, int64_t grace) {
     const uint8_t masks[] = {0x88, 0x44, 0x11, 0x22}; /* GUI, ALT, CTRL, SHIFT; both sides. */
     for (int i = 0; i < 4; i++) {
         bool held = (displayed_mods & masks[modifier_order_get(i)]) != 0;
-        lv_obj_set_style_text_color(operator_mod_labels[i],
-                                    lv_color_hex(held ? 0xb1e5f0 : OPERATOR_MOD_INACTIVE_COLOR), 0);
+        lv_obj_set_style_text_color(
+            operator_mod_labels[i],
+            lv_color_hex(held ? DISPLAY_COLOR_MOD_ROW_ACTIVE : DISPLAY_COLOR_MOD_ROW_INACTIVE), 0);
     }
     lv_label_set_text(operator_caps_label, requested_lock ? "CAPS LOCK" : "CAPS WORD");
-    lv_obj_set_style_text_color(
-        operator_caps_label,
-        lv_color_hex(requested_lock || requested_word ? 0xffbf00 : OPERATOR_MOD_INACTIVE_COLOR), 0);
+    lv_obj_set_style_text_color(operator_caps_label,
+                                lv_color_hex(requested_lock || requested_word
+                                                 ? DISPLAY_COLOR_CAPS
+                                                 : DISPLAY_COLOR_MOD_ROW_INACTIVE),
+                                0);
     if (remaining > 0) {
         hide(operator_row);
         if (requested_auto)

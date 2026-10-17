@@ -93,7 +93,7 @@ static void init_styles(void) {
                             lv_color_hex(DISPLAY_COLOR_BATTERY_DISCONNECTED_LABEL));
 
     lv_style_init(&style_label_connected);
-    lv_style_set_text_color(&style_label_connected, lv_color_hex(0x000000));
+    lv_style_set_text_color(&style_label_connected, lv_color_hex(DISPLAY_COLOR_BATTERY_NUMBER));
 
     lv_style_init(&style_battery_label_disconnected);
     lv_style_set_text_color(&style_battery_label_disconnected,
@@ -463,7 +463,7 @@ ZMK_SUBSCRIPTION(widget_battery_circles_power, zmk_peripheral_power_state_change
 extern const lv_image_dsc_t prospector_usb_power_icon;
 
 /* The firmware builds LVGL without the image widget (CONFIG_LV_USE_IMAGE off),
- * so draw the A8 icon through the draw layer, recoloured black. */
+ * so draw the A8 icon through the draw layer, recoloured to the theme's dark text. */
 static void plug_draw_cb(lv_event_t *e) {
     lv_obj_t *obj = lv_event_get_target(e);
     lv_area_t coords;
@@ -471,7 +471,7 @@ static void plug_draw_cb(lv_event_t *e) {
     lv_draw_image_dsc_t dsc;
     lv_draw_image_dsc_init(&dsc);
     dsc.src = &prospector_usb_power_icon;
-    dsc.recolor = lv_color_hex(0x000000);
+    dsc.recolor = lv_color_hex(DISPLAY_COLOR_USB_ICON);
     dsc.recolor_opa = LV_OPA_COVER;
     lv_draw_image(lv_event_get_layer(e), &dsc, &coords);
 }

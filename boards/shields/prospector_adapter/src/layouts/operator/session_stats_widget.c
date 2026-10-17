@@ -2,6 +2,7 @@
 #include <zephyr/kernel.h>
 #if IS_ENABLED(CONFIG_PROSPECTOR_OPERATOR_SESSION_STATS)
 #include "session_stats_widget.h"
+#include "display_colors.h"
 #include <fonts.h>
 #include <prospector/session_stats.h>
 #if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
@@ -83,23 +84,26 @@ void prospector_session_stats_widget_init(lv_obj_t *parent) {
     /* At the same y, the two-line Montserrat 10 stack and the FG_Medium_20 digits share
      * a vertical ink centre (measured from rendered pixels; asserted by the layout test). */
     /* x13/x42: AJ moved the TOP section right by half the T's width (3 px). */
-    top_label = stats_text(parent, "TOP\nWPM", 13, STATS_Y, &lv_font_montserrat_10, 0x8a949c);
+    top_label = stats_text(parent, "TOP\nWPM", 13, STATS_Y, &lv_font_montserrat_10,
+                           DISPLAY_COLOR_LABEL);
     lv_obj_set_style_text_align(top_label, LV_TEXT_ALIGN_CENTER, 0);
-    top_value = stats_text(parent, "0", 42, STATS_Y, &FG_Medium_20, 0xb1e5f0);
-    count_label = stats_text(parent, "KEY\nPRESS", 0, STATS_Y, &lv_font_montserrat_10, 0x8a949c);
+    top_value = stats_text(parent, "0", 42, STATS_Y, &FG_Medium_20, DISPLAY_COLOR_VALUE);
+    count_label = stats_text(parent, "KEY\nPRESS", 0, STATS_Y, &lv_font_montserrat_10,
+                             DISPLAY_COLOR_LABEL);
     lv_obj_set_style_text_align(count_label, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_align(count_label, LV_ALIGN_TOP_RIGHT, -10, STATS_Y);
     lv_obj_update_layout(count_label);
-    count_value = stats_text(parent, "0", 0, STATS_Y, &FG_Medium_20, 0xb1e5f0);
+    count_value = stats_text(parent, "0", 0, STATS_Y, &FG_Medium_20, DISPLAY_COLOR_VALUE);
 
     /* Diagnostics key balance (create_key_count_panel), centred on the screen. */
-    balance_track =
-        stats_rect(parent, BALANCE_TRACK_X, BALANCE_TRACK_Y, BALANCE_TRACK_WIDTH, 4, 0x30343a);
+    balance_track = stats_rect(parent, BALANCE_TRACK_X, BALANCE_TRACK_Y, BALANCE_TRACK_WIDTH, 4,
+                               DISPLAY_COLOR_BALANCE_TRACK);
     lv_obj_set_style_radius(balance_track, 2, 0);
     balance_tick = stats_rect(parent, BALANCE_TRACK_X + BALANCE_TRACK_WIDTH / 2 - 1,
-                              BALANCE_TRACK_Y - 3, 2, 10, 0x8a949c);
+                              BALANCE_TRACK_Y - 3, 2, 10, DISPLAY_COLOR_BALANCE_TICK);
     lv_obj_set_style_radius(balance_tick, 1, 0);
-    balance_marker = stats_rect(parent, 0, 0, BALANCE_MARKER_WIDTH, 12, 0x70e8f0);
+    balance_marker =
+        stats_rect(parent, 0, 0, BALANCE_MARKER_WIDTH, 12, DISPLAY_COLOR_BALANCE_MARKER);
     lv_obj_set_style_radius(balance_marker, 2, 0);
     session_stats_widget_refresh(NULL);
     stats_timer = lv_timer_create(session_stats_widget_refresh, 1000, NULL);

@@ -42,6 +42,57 @@ config PROSPECTOR_STATUS_SCREEN_OPERATOR
 
 endchoice
 
+choice PROSPECTOR_OPERATOR_THEME
+    prompt "Operator colour theme"
+    depends on PROSPECTOR_STATUS_SCREEN_OPERATOR
+    default PROSPECTOR_OPERATOR_THEME_DEFAULT
+    help
+      Colours of the Operator status screen. Diagnostics and the avatar page keep
+      their own colours.
+
+config PROSPECTOR_OPERATOR_THEME_DEFAULT
+    bool "Default"
+
+config PROSPECTOR_OPERATOR_THEME_EMBER
+    bool "Ember"
+
+config PROSPECTOR_OPERATOR_THEME_GLACIER
+    bool "Glacier"
+
+config PROSPECTOR_OPERATOR_THEME_SYNTHWAVE
+    bool "Synthwave"
+
+config PROSPECTOR_OPERATOR_THEME_SEA_SHELLS
+    bool "Sea Shells"
+
+config PROSPECTOR_OPERATOR_THEME_GITHUB
+    bool "GitHub"
+    help
+      GitHub Dark High Contrast palette.
+
+endchoice
+
+choice PROSPECTOR_OPERATOR_TEXTURE
+    prompt "Operator background texture"
+    depends on PROSPECTOR_STATUS_SCREEN_OPERATOR
+    default PROSPECTOR_OPERATOR_TEXTURE_NONE
+    help
+      Subtle pattern behind the Operator status screen, in the theme's colours.
+
+config PROSPECTOR_OPERATOR_TEXTURE_NONE
+    bool "None"
+
+config PROSPECTOR_OPERATOR_TEXTURE_DOTS
+    bool "Dot grid (8 px)"
+
+config PROSPECTOR_OPERATOR_TEXTURE_FINE_GRID
+    bool "Fine grid (6 px)"
+
+config PROSPECTOR_OPERATOR_TEXTURE_HATCH
+    bool "Diagonal hatch"
+
+endchoice
+
 config PROSPECTOR_ROTATE_DISPLAY_180
     bool "Rotate the display 180 degrees"
     default n
