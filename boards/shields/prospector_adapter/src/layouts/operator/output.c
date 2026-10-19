@@ -78,38 +78,34 @@ static void update_output_widget(struct zmk_widget_output *widget) {
     }
 }
 
-static int endpoint_changed_listener(const zmk_event_t *eh) {
-    const struct zmk_endpoint_changed *event = as_zmk_endpoint_changed(eh);
-    if (event) {
-        struct zmk_endpoint_instance selected = zmk_endpoint_get_selected();
-        active_transport = selected.transport;
+struct output_state {
+    enum zmk_transport transport;
+    uint8_t profile_index;
+};
 
-        struct zmk_widget_output *widget;
-        SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
-            update_output_widget(widget);
-        }
-    }
-    return ZMK_EV_EVENT_BUBBLE;
+/* Event side: snapshot only. ZMK selects the endpoint/profile before raising either event. */
+static struct output_state output_get_state(const zmk_event_t *eh) {
+    return (struct output_state){
+        .transport = zmk_endpoint_get_selected().transport,
+        .profile_index = zmk_ble_active_profile_index(),
+    };
 }
 
-static int ble_active_profile_changed_listener(const zmk_event_t *eh) {
-    const struct zmk_ble_active_profile_changed *event = as_zmk_ble_active_profile_changed(eh);
-    if (event) {
-        active_profile_index = event->index;
+/* Display queue: the only place that updates rendered state and touches LVGL. */
+static void output_update_cb(struct output_state state) {
+    active_transport = state.transport;
+    active_profile_index = state.profile_index;
 
-        struct zmk_widget_output *widget;
-        SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
-            update_output_widget(widget);
-        }
+    struct zmk_widget_output *widget;
+    SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
+        update_output_widget(widget);
     }
-    return ZMK_EV_EVENT_BUBBLE;
 }
 
-ZMK_LISTENER(widget_output_endpoint, endpoint_changed_listener);
-ZMK_SUBSCRIPTION(widget_output_endpoint, zmk_endpoint_changed);
-
-ZMK_LISTENER(widget_output_profile, ble_active_profile_changed_listener);
-ZMK_SUBSCRIPTION(widget_output_profile, zmk_ble_active_profile_changed);
+ZMK_DISPLAY_WIDGET_LISTENER(widget_output, struct output_state, output_update_cb,
+                            output_get_state)
+ZMK_SUBSCRIPTION(widget_output, zmk_endpoint_changed);
+ZMK_SUBSCRIPTION(widget_output, zmk_ble_active_profile_changed);
 
 static lv_obj_t *create_toggle_btn(lv_obj_t *parent, const char *text, int x) {
     lv_obj_t *btn = lv_obj_create(parent);
@@ -173,15 +169,8 @@ int zmk_widget_output_init(struct zmk_widget_output *widget, lv_obj_t *parent) {
         widget->slots[i] = create_slot_btn(widget->obj, i, x, slot_width, show_numbers);
     }
 
-    if (sys_slist_is_empty(&widgets)) {
-        active_profile_index = zmk_ble_active_profile_index();
-        struct zmk_endpoint_instance selected = zmk_endpoint_get_selected();
-        active_transport = selected.transport;
-    }
-
-    update_output_widget(widget);
-
     sys_slist_append(&widgets, &widget->node);
+    widget_output_init();
 
     return 0;
 }

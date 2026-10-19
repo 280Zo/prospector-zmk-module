@@ -13,7 +13,9 @@
 #include <fonts.h>
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
-static struct k_work_delayable wpm_smooth_work;
+static void wpm_smooth_work_handler(struct k_work *work);
+/* Static so the first listener update and later widgets never see uninitialized work. */
+static K_WORK_DELAYABLE_DEFINE(wpm_smooth_work, wpm_smooth_work_handler);
 
 static float displayed_wpm = 0.0f;
 static float target_wpm = 0.0f;
@@ -31,6 +33,15 @@ struct wpm_meter_state {
 struct layer_state {
     uint8_t index;
 };
+
+static void apply_label_box_style(struct zmk_widget_wpm_meter *widget) {
+    const struct operator_palette *palette = operator_theme_current();
+    lv_obj_t *labels[] = {widget->wpm_label, widget->layer_label};
+    for (size_t i = 0; i < sizeof(labels) / sizeof(labels[0]); i++) {
+        lv_obj_set_style_radius(labels[i], palette->label_box_radius, LV_PART_MAIN);
+        lv_obj_set_style_bg_opa(labels[i], palette->label_box_opacity, LV_PART_MAIN);
+    }
+}
 
 static void wpm_meter_render(int active_bars) {
     struct zmk_widget_wpm_meter *widget;
@@ -109,13 +120,13 @@ static void wpm_smooth_work_handler(struct k_work *work) {
     }
 
     if (!at_target || peak_position > active_bars) {
-        k_work_schedule(&wpm_smooth_work, K_MSEC(33));
+        k_work_schedule_for_queue(zmk_display_work_q(), &wpm_smooth_work, K_MSEC(33));
     }
 }
 
 static void wpm_meter_update_cb(struct wpm_meter_state state) {
     target_wpm = (float)state.wpm;
-    k_work_schedule(&wpm_smooth_work, K_NO_WAIT);
+    k_work_schedule_for_queue(zmk_display_work_q(), &wpm_smooth_work, K_NO_WAIT);
 }
 
 static struct wpm_meter_state wpm_meter_get_state(const zmk_event_t *eh) {
@@ -226,12 +237,11 @@ int zmk_widget_wpm_meter_init(struct zmk_widget_wpm_meter *widget, lv_obj_t *par
     lv_obj_set_style_pad_top(widget->layer_label, 7, LV_PART_MAIN);
     lv_obj_set_style_pad_bottom(widget->layer_label, 3, LV_PART_MAIN);
     lv_obj_align(widget->layer_label, LV_ALIGN_BOTTOM_RIGHT, 9, 7);
+    apply_label_box_style(widget);
 
     sys_slist_append(&widgets, &widget->node);
     widget_wpm_meter_init();
     widget_wpm_meter_layer_init();
-
-    k_work_init_delayable(&wpm_smooth_work, wpm_smooth_work_handler);
 
     return 0;
 }
@@ -243,6 +253,7 @@ lv_obj_t *zmk_widget_wpm_meter_obj(struct zmk_widget_wpm_meter *widget) { return
 void zmk_widget_wpm_meter_apply_palette(void) {
     struct zmk_widget_wpm_meter *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
+        apply_label_box_style(widget);
         for (int i = 0; i < WPM_BAR_COUNT; i++) {
             lv_obj_set_style_bg_color(widget->bars[i],
                                       lv_color_hex(i < prev_active_bars
