@@ -21,6 +21,12 @@
          #binding-cells = <1>;
          display-name = "Prospector Theme";
       };
+
+      /omit-if-no-ref/ ptr: prospector_top_reset {
+         compatible = "zmk,behavior-prospector-top-reset";
+         #binding-cells = <0>;
+         display-name = "Reset TOP WPM";
+      };
    };
 
    prospector_green_theme: prospector_green_theme {

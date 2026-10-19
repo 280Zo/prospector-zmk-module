@@ -28,6 +28,12 @@ void prospector_session_stats_get(struct prospector_session_stats *out) {
     k_mutex_unlock(&session_stats_lock);
 }
 
+void prospector_session_stats_reset_top_wpm(void) {
+    k_mutex_lock(&session_stats_lock, K_FOREVER);
+    session_stats.top_wpm = 0;
+    k_mutex_unlock(&session_stats_lock);
+}
+
 void prospector_session_stats_format_count(uint32_t count, char *out, size_t size) {
     if (size == 0 || out == NULL)
         return;

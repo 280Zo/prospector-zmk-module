@@ -20,6 +20,8 @@ struct prospector_session_stats {
 
 /* Boot-local counters, independent of display construction and visibility. */
 void prospector_session_stats_get(struct prospector_session_stats *out);
+/* Clear only TOP; subsequent WPM events establish a new maximum. */
+void prospector_session_stats_reset_top_wpm(void);
 void prospector_session_stats_format_count(uint32_t count, char *out, size_t size);
 /* Physical press from a split source; repeats of the same event are ignored. */
 void prospector_session_stats_note_press(uint8_t source, uint32_t position, int64_t timestamp);

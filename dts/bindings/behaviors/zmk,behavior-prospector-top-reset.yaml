@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: MIT
+
+description: Reset the Prospector Operator TOP WPM record
+
+compatible: "zmk,behavior-prospector-top-reset"
+
+include: zero_param.yaml
