@@ -28,9 +28,7 @@ static inline void k_mutex_lock(struct k_mutex *mutex, int timeout) {
     (void)mutex;
     (void)timeout;
 }
-static inline void k_mutex_unlock(struct k_mutex *mutex) {
-    (void)mutex;
-}
+static inline void k_mutex_unlock(struct k_mutex *mutex) { (void)mutex; }
 
 struct k_work {
     void (*handler)(struct k_work *work);
@@ -43,6 +41,15 @@ struct k_work_delayable {
 #define K_WORK_DEFINE(name, cb) struct k_work name = {.handler = cb}
 #define K_WORK_DELAYABLE_DEFINE(name, cb) struct k_work_delayable name = {.work = {.handler = cb}}
 
+#if defined(PROSPECTOR_HOST_DEFERRED_WORK)
+void k_work_init_delayable(struct k_work_delayable *, void (*handler)(struct k_work *));
+int k_work_schedule(struct k_work_delayable *, int);
+int k_work_reschedule(struct k_work_delayable *, int);
+int k_work_cancel_delayable(struct k_work_delayable *);
+int k_work_reschedule_for_queue(struct k_work_q *, struct k_work_delayable *, int);
+int k_work_schedule_for_queue(struct k_work_q *, struct k_work_delayable *, int);
+void host_work_advance(int ms);
+#else
 static inline void k_work_init_delayable(struct k_work_delayable *work,
                                          void (*handler)(struct k_work *work)) {
     work->work.handler = handler;
@@ -68,6 +75,13 @@ static inline int k_work_cancel_delayable(struct k_work_delayable *work) {
     return 0;
 }
 
+static inline int k_work_schedule_for_queue(struct k_work_q *queue,
+                                            struct k_work_delayable *work, int delay) {
+    (void)queue;
+    return k_work_schedule(work, delay);
+}
+#endif
+
 typedef struct sys_snode {
     struct sys_snode *next;
 } sys_snode_t;
@@ -79,9 +93,7 @@ typedef struct {
 
 #define SYS_SLIST_STATIC_INIT(ptr) {NULL, NULL}
 
-static inline bool sys_slist_is_empty(sys_slist_t *list) {
-    return list->head == NULL;
-}
+static inline bool sys_slist_is_empty(sys_slist_t *list) { return list->head == NULL; }
 
 static inline void sys_slist_append(sys_slist_t *list, sys_snode_t *node) {
     node->next = NULL;
@@ -94,9 +106,9 @@ static inline void sys_slist_append(sys_slist_t *list, sys_snode_t *node) {
 }
 
 #define CONTAINER_OF(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
-#define SYS_SLIST_FOR_EACH_CONTAINER(list, var, member) \
-    for (sys_snode_t *_node = (list)->head; \
-         _node != NULL && ((var) = CONTAINER_OF(_node, __typeof__(*(var)), member), true); \
+#define SYS_SLIST_FOR_EACH_CONTAINER(list, var, member)                                            \
+    for (sys_snode_t *_node = (list)->head;                                                        \
+         _node != NULL && ((var) = CONTAINER_OF(_node, __typeof__(*(var)), member), true);         \
          _node = _node->next)
 
 #define SYS_INIT(fn, level, priority)

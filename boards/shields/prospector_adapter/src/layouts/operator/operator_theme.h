@@ -5,6 +5,20 @@
 
 #include "display_colors.h"
 
+#include <stdbool.h>
+#include <stdint.h>
+
+/* Registry capability used by public build tooling. IDs remain stable across edits. */
+#define OPERATOR_THEME_REGISTRY_API 1
+const char *operator_theme_id_at(size_t index);
+bool operator_theme_find_id(const char *id, size_t *index);
+
+/* Version byte, then two zero-terminated 36-character IDs; never struct padding. */
+#define OPERATOR_THEME_ID_SIZE 37
+#define OPERATOR_THEME_STATE_SIZE (1 + 2 * OPERATOR_THEME_ID_SIZE)
+void operator_theme_encode_state(uint8_t state[OPERATOR_THEME_STATE_SIZE]);
+size_t operator_theme_resolve_state(const uint8_t *state, size_t len);
+
 /* Themes in cycle order: Default, Ember, Glacier, Synthwave, Sea Shells, GitHub. */
 size_t operator_theme_count(void);
 size_t operator_theme_index(void);

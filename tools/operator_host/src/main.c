@@ -1,16 +1,22 @@
+#include "brightness_toast.h"
 #include <lvgl.h>
 #include <prospector_render_state.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zephyr/kernel.h>
 #include <zmk/events/caps_word_state_changed.h>
 
 lv_obj_t *zmk_display_status_screen(void);
-int widget_modifier_indicator_cb(const zmk_event_t *eh);
+int widget_wpm_meter_cb(const zmk_event_t *eh);
 static uint32_t ticks;
 
-uint32_t custom_tick_get(void) {
-    return ticks;
+uint32_t custom_tick_get(void) { return ticks; }
+
+static void flush(lv_display_t *display, const lv_area_t *area, uint8_t *pixels) {
+    (void)area;
+    (void)pixels;
+    lv_display_flush_ready(display);
 }
 
 static zmk_mod_flags_t parse_mods(const char *mods) {
@@ -127,8 +133,11 @@ int main(int argc, char **argv) {
     lv_init();
     lv_tick_set_cb(custom_tick_get);
     lv_display_t *display = lv_display_create(280, 240);
+    lv_display_set_color_format(display, LV_COLOR_FORMAT_ARGB8888);
+    lv_display_set_flush_cb(display, flush);
     static uint8_t draw_buf[280 * 240 * 4];
-    lv_display_set_buffers(display, draw_buf, NULL, sizeof(draw_buf), LV_DISPLAY_RENDER_MODE_DIRECT);
+    lv_display_set_buffers(display, draw_buf, NULL, sizeof(draw_buf),
+                           LV_DISPLAY_RENDER_MODE_DIRECT);
 
     host_state_set_wpm(wpm);
     host_state_set_mods(parse_mods(mods));
@@ -141,19 +150,28 @@ int main(int argc, char **argv) {
     lv_obj_set_size(screen, 280, 240);
     lv_screen_load(screen);
 
-    if (caps_word) {
-        struct zmk_caps_word_state_changed ev = {.active = true};
-        widget_modifier_indicator_cb((const zmk_event_t *)&ev);
+    /* Warm the actual smoothing/history code, then settle at the requested WPM. */
+    for (int sample = 0; sample < 48; ++sample) {
+        host_state_set_wpm(15 + sample % 12 * 5);
+        widget_wpm_meter_cb(NULL);
+        ticks += 40;
+        host_work_advance(40);
+    }
+    host_state_set_wpm(wpm);
+    widget_wpm_meter_cb(NULL);
+    prospector_brightness_toast_request(1, 80, false, true);
+    prospector_modifier_row_request(parse_mods(mods), caps_word, false, true);
+    for (int i = 0; i < 60; ++i) {
+        ticks += 33;
+        host_work_advance(33);
+        lv_timer_handler();
     }
     apply_batteries(batteries, connected);
 
     lv_obj_update_layout(screen);
 
-    lv_draw_buf_t *snapshot = lv_snapshot_take(screen, LV_COLOR_FORMAT_ARGB8888);
-    if (!snapshot) {
-        fprintf(stderr, "Failed to capture LVGL snapshot\n");
-        return 1;
-    }
+    /* Refresh the full display so sys/top-layer modifier and brightness widgets are included. */
+    lv_refr_now(display);
 
     FILE *fp = fopen(output, "wb");
     if (!fp) {
@@ -161,9 +179,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     fwrite("LVRAW8888\n", 1, 10, fp);
-    fprintf(fp, "%u %u %u\n", snapshot->header.w, snapshot->header.h, snapshot->header.stride);
-    fwrite(snapshot->data, 1, snapshot->data_size, fp);
+    fprintf(fp, "280 240 1120\n");
+    fwrite(draw_buf, 1, sizeof(draw_buf), fp);
     fclose(fp);
-    lv_draw_buf_destroy(snapshot);
     return 0;
 }

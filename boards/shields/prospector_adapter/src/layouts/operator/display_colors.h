@@ -11,6 +11,8 @@
 
 struct operator_palette {
     const char *name;
+    uint8_t label_box_radius;
+    uint8_t label_box_opacity;
     uint32_t bg;
     uint32_t label;
     uint32_t value;
@@ -61,6 +63,8 @@ struct operator_palette {
 #define OPERATOR_PALETTE_DEFAULT                                                               \
     {                                                                                          \
         .name = "Default",                                                                     \
+        .label_box_radius = 0,                                                                 \
+        .label_box_opacity = 255,                                                              \
         .bg = 0x000000,                                                                        \
         .label = 0x8a949c,                                                                     \
         .value = 0xb1e5f0,                                                                     \
@@ -111,9 +115,11 @@ struct operator_palette {
 #define OPERATOR_PALETTE_EMBER                                                                 \
     {                                                                                          \
         .name = "Ember",                                                                       \
+        .label_box_radius = 4,                                                                 \
+        .label_box_opacity = 217,                                                              \
         .bg = 0x000000,                                                                        \
         .label = 0x8f7a69,                                                                     \
-        .value = 0xffcf99,                                                                     \
+        .value = 0xfff1e2,                                                                     \
         .balance_track = 0x3a2a20,                                                             \
         .balance_tick = 0x8f7a69,                                                              \
         .balance_marker = 0xff9f43,                                                            \
@@ -121,7 +127,7 @@ struct operator_palette {
         .mod_row_inactive = 0x3a3129,                                                          \
         .caps = 0xffd166,                                                                      \
         .brightness = 0xffd166,                                                                \
-        .wpm_peak = 0x554f49,                                                                  \
+        .wpm_peak = 0xe63946,                                                                  \
         .battery_number = 0x000000,                                                            \
         .slot_active_text = 0x000000,                                                          \
         .slot_inactive_text = 0x000000,                                                        \
@@ -130,9 +136,9 @@ struct operator_palette {
         .mod_inactive = 0x3a3129,                                                              \
         .mod_separator = 0x8f7a69,                                                             \
         .mod_caps_word = 0xffd166,                                                             \
-        .wpm_bar_active = 0xff6b35,                                                            \
+        .wpm_bar_active = 0xff8800,                                                            \
         .wpm_bar_inactive = 0x24201d,                                                          \
-        .wpm_text = 0xff6b35,                                                                  \
+        .wpm_text = 0xff8800,                                                                  \
         .layer_text = 0xfff1e2,                                                                \
         .layer_dot_active = 0xecded0,                                                          \
         .layer_dot_inactive = 0x54473d,                                                        \
@@ -161,6 +167,8 @@ struct operator_palette {
 #define OPERATOR_PALETTE_GLACIER                                                               \
     {                                                                                          \
         .name = "Glacier",                                                                     \
+        .label_box_radius = 0,                                                                 \
+        .label_box_opacity = 255,                                                              \
         .bg = 0x000000,                                                                        \
         .label = 0x7890a6,                                                                     \
         .value = 0xc8f1ff,                                                                     \
@@ -211,6 +219,8 @@ struct operator_palette {
 #define OPERATOR_PALETTE_SYNTHWAVE                                                             \
     {                                                                                          \
         .name = "Synthwave",                                                                   \
+        .label_box_radius = 0,                                                                 \
+        .label_box_opacity = 255,                                                              \
         .bg = 0x000000,                                                                        \
         .label = 0x8a7fa8,                                                                     \
         .value = 0x05d9e8,                                                                     \
@@ -261,6 +271,8 @@ struct operator_palette {
 #define OPERATOR_PALETTE_SEA_SHELLS                                                            \
     {                                                                                          \
         .name = "Sea Shells",                                                                  \
+        .label_box_radius = 0,                                                                 \
+        .label_box_opacity = 255,                                                              \
         .bg = 0x000000,                                                                        \
         .label = 0x628d98,                                                                     \
         .value = 0xfdd39f,                                                                     \
@@ -311,6 +323,8 @@ struct operator_palette {
 #define OPERATOR_PALETTE_GITHUB                                                                \
     {                                                                                          \
         .name = "GitHub",                                                                      \
+        .label_box_radius = 0,                                                                 \
+        .label_box_opacity = 255,                                                              \
         .bg = 0x000000,                                                                        \
         .label = 0x9ea7b3,                                                                     \
         .value = 0x71b7ff,                                                                     \

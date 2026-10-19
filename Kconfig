@@ -78,12 +78,13 @@ config PROSPECTOR_OPERATOR_THEME_CUSTOM
 endchoice
 
 config PROSPECTOR_OPERATOR_CUSTOM_THEME
-    bool "Custom Operator theme"
+    bool "Legacy single Custom Operator theme"
     depends on PROSPECTOR_STATUS_SCREEN_OPERATOR
     help
-      Adds a seventh theme built from the 14 colours below. Every colour must be set
-      (dongle_prospector_operator_theme_custom.conf) or the build stops. Dark
-      backgrounds only. All other shades are worked out from these colours.
+      Legacy compatibility for manually filled 14-colour configurations. Every
+      colour must be set or the build stops. New named themes are created with
+      the firmware repository's scripts/theme-tweak.py instead. Do not combine
+      this option with a generated registry. Dark backgrounds only.
 
 if PROSPECTOR_OPERATOR_CUSTOM_THEME
 

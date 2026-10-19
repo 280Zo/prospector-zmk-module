@@ -83,7 +83,7 @@ void prospector_session_stats_widget_init(lv_obj_t *parent) {
         return;
     /* At the same y, the two-line Montserrat 10 stack and the FG_Medium_20 digits share
      * a vertical ink centre (measured from rendered pixels; asserted by the layout test). */
-    /* x13/x42: AJ moved the TOP section right by half the T's width (3 px). */
+    /* x13/x42: TOP section shifted right by half the T's width (3 px). */
     top_label = stats_text(parent, "TOP\nWPM", 13, STATS_Y, &lv_font_montserrat_10,
                            DISPLAY_COLOR_LABEL);
     lv_obj_set_style_text_align(top_label, LV_TEXT_ALIGN_CENTER, 0);

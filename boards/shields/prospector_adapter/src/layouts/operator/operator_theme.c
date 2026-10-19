@@ -3,6 +3,24 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <string.h>
+
+#if defined(OPERATOR_THEME_REGISTRY_VERSION)
+#if OPERATOR_THEME_REGISTRY_VERSION != 1
+#error "Unsupported generated Operator theme registry version"
+#endif
+#if defined(CONFIG_PROSPECTOR_OPERATOR_CUSTOM_THEME)
+#error "Generated theme selection replaces legacy Custom config; remove the old fragment"
+#endif
+struct operator_theme_entry {
+    const char *id;
+    struct operator_palette palette;
+};
+static const struct operator_theme_entry registry[] = {OPERATOR_THEME_REGISTRY_ENTRIES};
+#define THEME_COUNT (sizeof(registry) / sizeof(registry[0]))
+_Static_assert(THEME_COUNT > 0, "Select at least one Operator theme");
+_Static_assert(OPERATOR_THEME_REGISTRY_START < THEME_COUNT, "Invalid registry startup theme");
+#else
 
 static const struct operator_palette builtin[] = {
     OPERATOR_PALETTE_DEFAULT,   OPERATOR_PALETTE_EMBER,      OPERATOR_PALETTE_GLACIER,
@@ -139,6 +157,8 @@ static const struct operator_palette *custom_palette(void) {
     struct ratio battery_text = smaller(contrast(text, battery), contrast(text, low));
     custom = (struct operator_palette){
         .name = "Custom",
+        .label_box_radius = 0,
+        .label_box_opacity = 255,
         .bg = bg,
         .label = muted,
         .value = info,
@@ -192,7 +212,11 @@ static const struct operator_palette *custom_palette(void) {
 #define THEME_COUNT BUILTIN_COUNT
 #endif
 
-#if defined(CONFIG_PROSPECTOR_OPERATOR_THEME_EMBER)
+#endif /* generated registry / legacy defaults */
+
+#if defined(OPERATOR_THEME_REGISTRY_VERSION)
+#define START_INDEX OPERATOR_THEME_REGISTRY_START
+#elif defined(CONFIG_PROSPECTOR_OPERATOR_THEME_EMBER)
 #define START_INDEX 1
 #elif defined(CONFIG_PROSPECTOR_OPERATOR_THEME_GLACIER)
 #define START_INDEX 2
@@ -217,11 +241,71 @@ size_t operator_theme_index(void) { return current_theme; }
 size_t operator_theme_start_index(void) { return START_INDEX; }
 
 const struct operator_palette *operator_theme_at(size_t index) {
+#if defined(OPERATOR_THEME_REGISTRY_VERSION)
+    return &registry[index < THEME_COUNT ? index : 0].palette;
+#else
 #if defined(CONFIG_PROSPECTOR_OPERATOR_CUSTOM_THEME)
     if (index == BUILTIN_COUNT)
         return custom_palette();
 #endif
     return &builtin[index < BUILTIN_COUNT ? index : 0];
+#endif
+}
+
+const char *operator_theme_id_at(size_t index) {
+#if defined(OPERATOR_THEME_REGISTRY_VERSION)
+    return registry[index < THEME_COUNT ? index : 0].id;
+#else
+    static const char *const ids[] = {"default",
+                                      "ember",
+                                      "glacier",
+                                      "synthwave",
+                                      "sea_shells",
+                                      "github"
+#if defined(CONFIG_PROSPECTOR_OPERATOR_CUSTOM_THEME)
+                                      ,
+                                      "custom"
+#endif
+    };
+    return ids[index < THEME_COUNT ? index : 0];
+#endif
+}
+
+bool operator_theme_find_id(const char *id, size_t *index) {
+    if (!id || !index)
+        return false;
+    for (size_t i = 0; i < THEME_COUNT; ++i) {
+        if (strcmp(id, operator_theme_id_at(i)) == 0) {
+            *index = i;
+            return true;
+        }
+    }
+    return false;
+}
+
+void operator_theme_encode_state(uint8_t state[OPERATOR_THEME_STATE_SIZE]) {
+    memset(state, 0, OPERATOR_THEME_STATE_SIZE);
+    state[0] = 1;
+    const char *start = operator_theme_id_at(START_INDEX);
+    const char *current = operator_theme_id_at(current_theme);
+    if (strlen(start) >= OPERATOR_THEME_ID_SIZE || strlen(current) >= OPERATOR_THEME_ID_SIZE) {
+        state[0] = 0;
+        return;
+    }
+    memcpy(state + 1, start, strlen(start));
+    memcpy(state + 1 + OPERATOR_THEME_ID_SIZE, current, strlen(current));
+}
+
+size_t operator_theme_resolve_state(const uint8_t *state, size_t len) {
+    if (!state || len != OPERATOR_THEME_STATE_SIZE || state[0] != 1)
+        return START_INDEX;
+    const char *start = (const char *)(state + 1);
+    const char *current = start + OPERATOR_THEME_ID_SIZE;
+    if (!memchr(start, 0, OPERATOR_THEME_ID_SIZE) || !memchr(current, 0, OPERATOR_THEME_ID_SIZE) ||
+        strcmp(start, operator_theme_id_at(START_INDEX)) != 0)
+        return START_INDEX;
+    size_t index;
+    return operator_theme_find_id(current, &index) ? index : START_INDEX;
 }
 
 const struct operator_palette *operator_theme_current(void) {

@@ -31,8 +31,17 @@ def parse_csv_ints(value: str) -> list[int]:
 
 
 def run(command: list[str], cwd: Path | None = None) -> None:
-    print("+", " ".join(command), flush=True)
-    subprocess.run(command, cwd=cwd, check=True)
+    print("+", Path(command[0]).name, flush=True)
+    result = subprocess.run(
+        command,
+        cwd=cwd,
+        capture_output=True,
+        timeout=10 if Path(command[0]).name == "operator_renderer" else 120,
+    )
+    if result.returncode:
+        raise RuntimeError(
+            "Local renderer operation failed; check compatible sources and dependencies."
+        )
 
 
 def prepare_deps(cache_dir: Path) -> Path:
@@ -60,7 +69,9 @@ def prepare_deps(cache_dir: Path) -> Path:
     lvgl_dir = workspace_dir / "modules" / "lib" / "gui" / "lvgl"
     zmk_dir = workspace_dir / "zmk"
     if not lvgl_dir.exists() or not zmk_dir.exists():
-        raise RuntimeError("west update completed, but expected ZMK/LVGL paths were not created")
+        raise RuntimeError(
+            "west update completed, but expected ZMK/LVGL paths were not created"
+        )
 
     print()
     print("Dependency cache prepared:")
@@ -81,7 +92,12 @@ def find_lvgl_dir(cache_dir: Path, explicit: Path | None = None) -> Path | None:
         [
             cache_dir / "zmk-workspace" / "modules" / "lib" / "gui" / "lvgl",
             REPO_ROOT.parent / "zmk-workspace" / "modules" / "lib" / "gui" / "lvgl",
-            REPO_ROOT.parent / "charybdis-wireless-mini-zmk-firmware" / "modules" / "lib" / "gui" / "lvgl",
+            REPO_ROOT.parent
+            / "charybdis-wireless-mini-zmk-firmware"
+            / "modules"
+            / "lib"
+            / "gui"
+            / "lvgl",
         ]
     )
 
@@ -122,7 +138,9 @@ def raw_to_png(raw_path: Path, png_path: Path, scale: int) -> None:
                 scaled_row.extend(px * scale)
             for repeat in range(scale):
                 dest_y = y * scale + repeat
-                scaled[dest_y * scaled_width * 3 : (dest_y + 1) * scaled_width * 3] = scaled_row
+                scaled[dest_y * scaled_width * 3 : (dest_y + 1) * scaled_width * 3] = (
+                    scaled_row
+                )
         width = scaled_width
         height = scaled_height
         pixels = scaled
@@ -131,7 +149,9 @@ def raw_to_png(raw_path: Path, png_path: Path, scale: int) -> None:
     write_png_rgb(png_path, width, height, pixels)
 
 
-def write_png_rgb(path: Path, width: int, height: int, pixels: bytes | bytearray) -> None:
+def write_png_rgb(
+    path: Path, width: int, height: int, pixels: bytes | bytearray
+) -> None:
     def chunk(kind: bytes, payload: bytes) -> bytes:
         return (
             struct.pack(">I", len(payload))
@@ -159,6 +179,10 @@ def render_operator(args: argparse.Namespace, parser: argparse.ArgumentParser) -
 
     lvgl_dir = find_lvgl_dir(args.cache_dir, args.lvgl_dir)
     if lvgl_dir is None:
+        if args.offline:
+            parser.error(
+                "Real renderer unavailable: a compatible local LVGL checkout is required in offline mode"
+            )
         if shutil.which("git") is None:
             parser.error("git is required to prepare the dependency cache")
         lvgl_dir = prepare_deps(args.cache_dir)
@@ -183,6 +207,7 @@ def render_operator(args: argparse.Namespace, parser: argparse.ArgumentParser) -
             f"-DOPERATOR_LAYER_COUNT={args.layer_count}",
             f"-DOPERATOR_PROFILE_COUNT={args.profile_count}",
             f"-DOPERATOR_PERIPHERAL_COUNT={battery_count}",
+            f"-DOPERATOR_REGISTRY={args.registry.absolute() if args.registry else ''}",
         ]
     )
     run(["cmake", "--build", str(build_dir), "--target", "operator_renderer"])
@@ -216,7 +241,7 @@ def render_operator(args: argparse.Namespace, parser: argparse.ArgumentParser) -
             command.append("--caps-word")
         run(command)
         raw_to_png(raw_path, args.output, args.scale)
-    print(args.output)
+    print("Operator image rendered.")
 
 
 def ask(prompt: str, default: str) -> str:
@@ -238,14 +263,20 @@ def run_interactive(args: argparse.Namespace) -> argparse.Namespace:
     args.layout = ask_choice("Screen/theme", ["operator"], args.layout)
     args.wpm = int(ask("WPM", str(args.wpm)))
     args.mods = ask("Active modifiers, comma-separated", args.mods)
-    args.caps_word = ask_choice("Caps word active", ["no", "yes"], "yes" if args.caps_word else "no") == "yes"
+    args.caps_word = (
+        ask_choice("Caps word active", ["no", "yes"], "yes" if args.caps_word else "no")
+        == "yes"
+    )
     args.modifier_order = ask("Modifier order", args.modifier_order).upper()
     args.layer = ask("Layer display name", args.layer)
     args.layer_count = int(ask("Layer count / horizontal bars", str(args.layer_count)))
     args.active_layer = int(ask("Active layer index, 0-based", str(args.active_layer)))
     args.batteries = ask("Peripheral batteries, comma-separated", args.batteries)
     battery_count = len(parse_csv_ints(args.batteries))
-    args.connected = ask("Peripheral connection states, comma-separated", ",".join(["yes"] * battery_count))
+    args.connected = ask(
+        "Peripheral connection states, comma-separated",
+        ",".join(["yes"] * battery_count),
+    )
     args.transport = ask_choice("Selected output", ["usb", "ble"], args.transport)
     args.profile_count = int(ask("BLE profile count", str(args.profile_count)))
     args.profile = int(ask("Selected BLE profile, 1-based", str(args.profile)))
@@ -255,24 +286,60 @@ def run_interactive(args: argparse.Namespace) -> argparse.Namespace:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Render a Prospector Operator status screen PNG.")
-    parser.add_argument("--interactive", "-i", action="store_true", help="Prompt for every visible screen value")
+    parser = argparse.ArgumentParser(
+        description="Render a Prospector Operator status screen PNG."
+    )
+    parser.add_argument(
+        "--interactive",
+        "-i",
+        action="store_true",
+        help="Prompt for every visible screen value",
+    )
     parser.add_argument(
         "--prepare-deps",
         action="store_true",
         help="Download west/ZMK/LVGL into an ignored cache for the LVGL renderer",
     )
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
-    parser.add_argument("--lvgl-dir", type=Path, default=None, help="Use an existing local LVGL checkout")
+    parser.add_argument(
+        "--lvgl-dir",
+        type=Path,
+        default=None,
+        help="Use an existing local LVGL checkout",
+    )
+    parser.add_argument(
+        "--offline", action="store_true", help="Never prepare/download dependencies"
+    )
+    parser.add_argument(
+        "--registry",
+        type=Path,
+        help="Private generated pending-palette registry for this host build",
+    )
     parser.add_argument("--layout", choices=["operator"], default="operator")
     parser.add_argument("--wpm", type=int, default=67)
-    parser.add_argument("--mods", default="shift", help="Comma-separated active modifiers: gui,alt,ctrl,shift")
-    parser.add_argument("--caps-word", action="store_true", help="Render shift using the caps word color")
+    parser.add_argument(
+        "--mods",
+        default="shift",
+        help="Comma-separated active modifiers: gui,alt,ctrl,shift",
+    )
+    parser.add_argument(
+        "--caps-word",
+        action="store_true",
+        help="Render shift using the caps word color",
+    )
     parser.add_argument("--modifier-order", default="GACS")
-    parser.add_argument("--batteries", default="65,11", help="Comma-separated peripheral battery levels")
-    parser.add_argument("--connected", default="yes,yes", help="Comma-separated peripheral connection states")
+    parser.add_argument(
+        "--batteries", default="65,11", help="Comma-separated peripheral battery levels"
+    )
+    parser.add_argument(
+        "--connected",
+        default="yes,yes",
+        help="Comma-separated peripheral connection states",
+    )
     parser.add_argument("--transport", choices=["usb", "ble"], default="usb")
-    parser.add_argument("--profile", type=int, default=1, help="Selected BLE profile, 1-based")
+    parser.add_argument(
+        "--profile", type=int, default=1, help="Selected BLE profile, 1-based"
+    )
     parser.add_argument("--profile-count", type=int, default=4)
     parser.add_argument("--layer", default="Base")
     parser.add_argument("--layer-count", type=int, default=5)
@@ -285,6 +352,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_arg_parser()
     args = parser.parse_args()
+    if args.offline and args.prepare_deps:
+        parser.error("Offline mode cannot prepare/download dependencies")
     if args.prepare_deps:
         if shutil.which("git") is None:
             parser.error("git is required to prepare the dependency cache")
@@ -302,4 +371,11 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except (OSError, RuntimeError, subprocess.TimeoutExpired):
+        print(
+            "Renderer unavailable: check compatible local sources, dependencies and writable output.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)

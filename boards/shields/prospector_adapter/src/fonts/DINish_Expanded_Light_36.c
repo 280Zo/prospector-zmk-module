@@ -2,7 +2,7 @@
 /*******************************************************************************
  * Size: 36 px
  * Bpp: 4
- * Opts: --font /Users/carrefinho/Developer/lvgl-fonts/dinish-expanded/ttf/DINishExpanded-Light.ttf --size 36 --bpp 4 --format lvgl --output DINishExpanded_Light_36.c --lv-font-name DINishExpanded_Light_36 --range 0x20-0x7F --no-compress
+ * Opts: --font dinish-expanded/ttf/DINishExpanded-Light.ttf --size 36 --bpp 4 --format lvgl --output DINishExpanded_Light_36.c --lv-font-name DINishExpanded_Light_36 --range 0x20-0x7F --no-compress
  ******************************************************************************/
 
 #ifndef DINISHEXPANDED_LIGHT_36
@@ -2902,4 +2902,3 @@ lv_font_t DINishExpanded_Light_36 = {
 
 
 #endif /*#if DINISHEXPANDED_LIGHT_36*/
-
