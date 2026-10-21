@@ -677,6 +677,14 @@ void prospector_avatar_page_set_visible(bool visible) {
     }
 }
 
+bool prospector_avatar_page_extra_active(void) {
+#if defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
+    return k_uptime_get() < avatar_extra_until;
+#else
+    return false;
+#endif
+}
+
 bool prospector_avatar_page_note_swipe(void) {
 #if !defined(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA)
     return false;
@@ -709,7 +717,9 @@ bool prospector_avatar_page_note_swipe(void) {
         extra_active = true;
         LOG_INF("Hidden extra armed after %ld swipes", (long)swipe_streak);
     } else {
-        k_work_reschedule(&avatar_swipe_streak_reset_work, K_MSEC(AVATAR_SWIPE_STREAK_MS));
+        /* Same queue as the navigation that calls this, so the streak has one owner. */
+        k_work_reschedule_for_queue(zmk_display_work_q(), &avatar_swipe_streak_reset_work,
+                                    K_MSEC(AVATAR_SWIPE_STREAK_MS));
     }
 
     if (atomic_get(&avatar_visible) && zmk_display_is_initialized()) {

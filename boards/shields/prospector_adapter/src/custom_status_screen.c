@@ -59,18 +59,27 @@ static uint8_t requested_page;
      IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_HIDDEN_EXTRA) &&                                          \
      !IS_ENABLED(CONFIG_PROSPECTOR_AVATAR_SHOW_KEYBOARD_KNIGHT))
 
-static void apply_requested_page(void);
+static void apply_page(uint8_t page);
+
+static void apply_requested_page(void) { apply_page(requested_page); }
 
 static void page_switch_work_handler(struct k_work *work) { apply_requested_page(); }
 
 K_WORK_DEFINE(page_switch_work, page_switch_work_handler);
 
-static void apply_requested_page(void) {
+static void apply_page(uint8_t page) {
     if (status_page == NULL) {
         return;
     }
 
-    uint8_t page = requested_page % PROSPECTOR_DISPLAY_PAGE_COUNT;
+    page %= PROSPECTOR_DISPLAY_PAGE_COUNT;
+
+#if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
+    /* The hidden extra plays to the end: no page key may leave it. */
+    if (page != PROSPECTOR_DISPLAY_PAGE_AVATAR && prospector_avatar_page_extra_active()) {
+        return;
+    }
+#endif
 
     if (page == PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS &&
         !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {
@@ -144,59 +153,97 @@ static int schedule_page_switch(uint8_t page) {
 
 int prospector_display_page_set(uint8_t page) { return schedule_page_switch(page); }
 
-int prospector_display_page_next(void) {
-    if (PROSPECTOR_AVATAR_OVERLAY_ONLY && !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {
-        return 0;
-    }
-
-    switch (active_page) {
+static uint8_t page_after_next(uint8_t page) {
+    switch (page) {
     case PROSPECTOR_DISPLAY_PAGE_STATUS:
 #if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS);
+        return PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS;
 #elif defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+        return PROSPECTOR_DISPLAY_PAGE_AVATAR;
 #else
-        return 0;
+        return page;
 #endif
     case PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS:
 #if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+        return PROSPECTOR_DISPLAY_PAGE_AVATAR;
 #else
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+        return PROSPECTOR_DISPLAY_PAGE_STATUS;
 #endif
-    case PROSPECTOR_DISPLAY_PAGE_AVATAR:
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
     default:
-        return 0;
+        return PROSPECTOR_DISPLAY_PAGE_STATUS;
     }
 }
 
-int prospector_display_page_prev(void) {
-    if (PROSPECTOR_AVATAR_OVERLAY_ONLY && !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {
-        return 0;
-    }
-
-    switch (active_page) {
+static uint8_t page_after_prev(uint8_t page) {
+    switch (page) {
     case PROSPECTOR_DISPLAY_PAGE_STATUS:
 #if defined(CONFIG_PROSPECTOR_ENABLE_AVATAR_PAGE)
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_AVATAR);
+        return PROSPECTOR_DISPLAY_PAGE_AVATAR;
 #elif defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS);
+        return PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS;
 #else
-        return 0;
+        return page;
 #endif
-    case PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS:
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
     case PROSPECTOR_DISPLAY_PAGE_AVATAR:
 #if defined(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS);
+        return PROSPECTOR_DISPLAY_PAGE_DIAGNOSTICS;
 #else
-        return schedule_page_switch(PROSPECTOR_DISPLAY_PAGE_STATUS);
+        return PROSPECTOR_DISPLAY_PAGE_STATUS;
 #endif
     default:
-        return 0;
+        return PROSPECTOR_DISPLAY_PAGE_STATUS;
     }
 }
+
+/* Next/previous from keys and swipes run in order on the display queue. Each one counts
+ * toward the hidden extra; a press it consumes does not change page. */
+#define NAV_QUEUE_SIZE 8
+static bool nav_queue[NAV_QUEUE_SIZE]; /* true = next */
+static uint8_t nav_head, nav_count;
+K_MUTEX_DEFINE(nav_lock);
+
+static void nav_work_handler(struct k_work *work) {
+    ARG_UNUSED(work);
+    for (;;) {
+        k_mutex_lock(&nav_lock, K_FOREVER);
+        if (nav_count == 0) {
+            k_mutex_unlock(&nav_lock);
+            return;
+        }
+        bool next = nav_queue[nav_head];
+        nav_head = (nav_head + 1) % NAV_QUEUE_SIZE;
+        nav_count--;
+        k_mutex_unlock(&nav_lock);
+
+        if (prospector_display_page_note_swipe() ||
+            (PROSPECTOR_AVATAR_OVERLAY_ONLY &&
+             !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE))) {
+            continue;
+        }
+        /* Not via requested_page: a Status press queued behind this must still win. */
+        apply_page(next ? page_after_next(active_page) : page_after_prev(active_page));
+    }
+}
+
+K_WORK_DEFINE(nav_work, nav_work_handler);
+
+static int queue_navigation(bool next) {
+    if (!zmk_display_is_initialized()) {
+        return 0;
+    }
+    k_mutex_lock(&nav_lock, K_FOREVER);
+    if (nav_count < NAV_QUEUE_SIZE) { /* A full queue drops the newest press. */
+        nav_queue[(nav_head + nav_count) % NAV_QUEUE_SIZE] = next;
+        nav_count++;
+    }
+    k_mutex_unlock(&nav_lock);
+    k_work_submit_to_queue(zmk_display_work_q(), &nav_work);
+    return 0;
+}
+
+int prospector_display_page_next(void) { return queue_navigation(true); }
+
+int prospector_display_page_prev(void) { return queue_navigation(false); }
 
 int prospector_display_page_toggle(void) {
     if (PROSPECTOR_AVATAR_OVERLAY_ONLY && !IS_ENABLED(CONFIG_PROSPECTOR_ENABLE_DIAGNOSTICS_PAGE)) {

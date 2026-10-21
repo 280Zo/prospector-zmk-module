@@ -38,15 +38,10 @@ static void swipe_work_handler(struct k_work *work) {
 
     pending_action = SWIPE_ACTION_NONE;
 
+    /* Navigation counts each swipe toward the hidden extra, as it does for keys. */
     if (action == SWIPE_ACTION_NEXT) {
-        if (prospector_display_page_note_swipe()) {
-            return;
-        }
         prospector_display_page_next();
     } else if (action == SWIPE_ACTION_PREV) {
-        if (prospector_display_page_note_swipe()) {
-            return;
-        }
         prospector_display_page_prev();
     }
 }
