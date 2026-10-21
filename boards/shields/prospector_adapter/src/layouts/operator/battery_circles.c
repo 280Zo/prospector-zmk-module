@@ -386,23 +386,6 @@ void battery_circles_battery_update_cb(struct battery_update_state state) {
     }
 }
 
-static struct battery_update_state battery_circles_get_battery_state(const zmk_event_t *eh) {
-    if (eh == NULL) {
-        return (struct battery_update_state){.source = 0, .level = 0};
-    }
-
-    const struct zmk_peripheral_battery_state_changed *bat_ev =
-        as_zmk_peripheral_battery_state_changed(eh);
-    if (bat_ev == NULL) {
-        return (struct battery_update_state){.source = 0, .level = 0};
-    }
-
-    return (struct battery_update_state){
-        .source = bat_ev->source,
-        .level = bat_ev->state_of_charge,
-    };
-}
-
 void battery_circles_connection_update_cb(struct connection_update_state state) {
     struct zmk_widget_battery_circles *widget;
     SYS_SLIST_FOR_EACH_CONTAINER(&widgets, widget, node) {
@@ -412,30 +395,70 @@ void battery_circles_connection_update_cb(struct connection_update_state state) 
     }
 }
 
-static struct connection_update_state battery_circles_get_connection_state(const zmk_event_t *eh) {
-    if (eh == NULL) {
-        return (struct connection_update_state){.source = 0, .connected = false};
-    }
+/* ZMK_DISPLAY_WIDGET_LISTENER keeps one pending snapshot, so when both halves report
+ * before the display runs (switching both off, waking together) one half's update was
+ * lost and its circle kept a stale level until its next report. Keep one per half. */
+static struct {
+    uint8_t level;
+    bool connected;
+    bool level_pending;
+    bool connection_pending;
+} pending_halves[PERIPHERAL_COUNT];
+K_MUTEX_DEFINE(pending_halves_lock);
 
-    const struct zmk_split_central_status_changed *conn_ev =
-        as_zmk_split_central_status_changed(eh);
-    if (conn_ev == NULL) {
-        return (struct connection_update_state){.source = 0, .connected = false};
+static void apply_pending_halves(struct k_work *work) {
+    ARG_UNUSED(work);
+    for (uint8_t source = 0; source < PERIPHERAL_COUNT; source++) {
+        k_mutex_lock(&pending_halves_lock, K_FOREVER);
+        uint8_t level = pending_halves[source].level;
+        bool connected = pending_halves[source].connected;
+        bool level_pending = pending_halves[source].level_pending;
+        bool connection_pending = pending_halves[source].connection_pending;
+        pending_halves[source].level_pending = false;
+        pending_halves[source].connection_pending = false;
+        k_mutex_unlock(&pending_halves_lock);
+        if (connection_pending) {
+            battery_circles_connection_update_cb(
+                (struct connection_update_state){.source = source, .connected = connected});
+        }
+        if (level_pending) {
+            battery_circles_battery_update_cb(
+                (struct battery_update_state){.source = source, .level = level});
+        }
     }
-
-    return (struct connection_update_state){
-        .source = conn_ev->slot,
-        .connected = conn_ev->connected,
-    };
 }
 
-ZMK_DISPLAY_WIDGET_LISTENER(widget_battery_circles_battery, struct battery_update_state,
-                            battery_circles_battery_update_cb, battery_circles_get_battery_state);
+static K_WORK_DEFINE(pending_halves_work, apply_pending_halves);
+
+static int battery_circles_battery_listener(const zmk_event_t *eh) {
+    const struct zmk_peripheral_battery_state_changed *ev =
+        as_zmk_peripheral_battery_state_changed(eh);
+    if (zmk_display_is_initialized() && ev != NULL && ev->source < PERIPHERAL_COUNT) {
+        k_mutex_lock(&pending_halves_lock, K_FOREVER);
+        pending_halves[ev->source].level = ev->state_of_charge;
+        pending_halves[ev->source].level_pending = true;
+        k_mutex_unlock(&pending_halves_lock);
+        k_work_submit_to_queue(zmk_display_work_q(), &pending_halves_work);
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+static int battery_circles_connection_listener(const zmk_event_t *eh) {
+    const struct zmk_split_central_status_changed *ev = as_zmk_split_central_status_changed(eh);
+    if (zmk_display_is_initialized() && ev != NULL && ev->slot < PERIPHERAL_COUNT) {
+        k_mutex_lock(&pending_halves_lock, K_FOREVER);
+        pending_halves[ev->slot].connected = ev->connected;
+        pending_halves[ev->slot].connection_pending = true;
+        k_mutex_unlock(&pending_halves_lock);
+        k_work_submit_to_queue(zmk_display_work_q(), &pending_halves_work);
+    }
+    return ZMK_EV_EVENT_BUBBLE;
+}
+
+ZMK_LISTENER(widget_battery_circles_battery, battery_circles_battery_listener);
 ZMK_SUBSCRIPTION(widget_battery_circles_battery, zmk_peripheral_battery_state_changed);
 
-ZMK_DISPLAY_WIDGET_LISTENER(widget_battery_circles_connection, struct connection_update_state,
-                            battery_circles_connection_update_cb,
-                            battery_circles_get_connection_state);
+ZMK_LISTENER(widget_battery_circles_connection, battery_circles_connection_listener);
 ZMK_SUBSCRIPTION(widget_battery_circles_connection, zmk_split_central_status_changed);
 
 #if IS_ENABLED(CONFIG_PROSPECTOR_POWER_STATUS)
@@ -645,9 +668,6 @@ int zmk_widget_battery_circles_init(struct zmk_widget_battery_circles *widget, l
             lv_obj_set_style_bg_opa(bar, LV_OPA_COVER, LV_PART_INDICATOR);
         }
     }
-
-    widget_battery_circles_battery_init();
-    widget_battery_circles_connection_init();
 
     widget->initialized = true;
     sys_slist_append(&widgets, &widget->node);
